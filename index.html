@@ -1,198 +1,225 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ringcon Go | Delivery de comida</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="main.css">
-</head>
-<body>
+/* ==========================================================
+   Ringcon Go - script.js
+   Cantidades, total dinámico y pedido por WhatsApp.
 
-  <header class="header">
-    <div class="container header__inner">
-      <a href="#" class="logo">Ringcon <span>Go</span></a>
-      <nav class="nav">
-        <a href="#categorias">Categorías</a>
-        <a href="#menu">Menú</a>
-        <a href="#como-funciona">Cómo funciona</a>
-      </nav>
-      <a href="#menu" class="btn btn--small">Pedir ahora</a>
-    </div>
-  </header>
+   HTML que espera (todo configurable en la sección SELECTORES):
+   - Cada producto:  <article class="card" data-name="Doble Smash" data-price="9500">
+                       (si no hay data-name / data-price, lee el <h3> y el elemento .price)
+   - Botón restar:   <button data-action="minus">−</button>
+   - Cantidad:       <span class="qty__value">1</span>
+   - Botón sumar:    <button data-action="plus">+</button>
+   - Subtotal:       cualquier elemento con .order-total o [data-subtotal] dentro del producto
+   - Botón en tarjeta (opcional):
+         data-action="add"   -> agrega el producto al carrito
+         data-action="order" -> pide por WhatsApp solo ese producto
+   - Botón general "Pedir por WhatsApp" (fuera de las tarjetas):
+         <button data-action="order">  o  id="btn-whatsapp"
+   - Carrito (opcional): #cart-items (lista) y #cart-total (total)
+   ========================================================== */
 
-  <main>
+"use strict";
 
-    <!-- HERO -->
-    <section class="hero">
-      <div class="container hero__inner">
-        <div class="hero__text">
-          <span class="tag">🛵 Delivery en minutos</span>
-          <h1>Tu antojo, <br>directo a tu puerta</h1>
-          <p>Hamburguesas, pizzas, empanadas y mucho más de los mejores locales, calientes y a tiempo.</p>
-          <div class="hero__actions">
-            <a href="#menu" class="btn">Ver el menú</a>
-            <a href="#como-funciona" class="btn btn--ghost">Cómo funciona</a>
-          </div>
-        </div>
-        <div class="hero__image">
-          <img src="images/v2_3573.png" alt="Hamburguesa doble con cheddar y papas rústicas">
-        </div>
-      </div>
-    </section>
+/* ---------- CONFIGURACIÓN (lo que vas a editar) ---------- */
+const CONFIG = {
+  // Número del local en formato internacional, SOLO números (sin +, espacios ni guiones).
+  whatsappNumber: "5491100000000",
+  businessName: "Ringcon Go",
+  currency: "$",
+  locale: "es-AR",
+  addressLine: "Dirección de entrega: [escribí tu dirección acá]",
+  emptyCartMessage: "Agregá al menos un producto antes de pedir.",
+};
 
-    <!-- CATEGORIAS -->
-    <section class="section" id="categorias">
-      <div class="container">
-        <h2 class="section__title">¿Qué se te antoja?</h2>
-        <div class="categories">
-          <a href="#menu" class="category">
-            <img src="images/v2_3574.png" alt="Hamburguesas">
-            <span>Hamburguesas</span>
-          </a>
-          <a href="#menu" class="category">
-            <img src="images/v2_3575.png" alt="Pizzas">
-            <span>Pizzas</span>
-          </a>
-          <a href="#menu" class="category">
-            <img src="images/v2_3576.png" alt="Empanadas">
-            <span>Empanadas</span>
-          </a>
-          <a href="#menu" class="category">
-            <img src="images/v2_3577.png" alt="Papas">
-            <span>Papas</span>
-          </a>
-        </div>
-      </div>
-    </section>
+/* ---------- SELECTORES ---------- */
+const SEL = {
+  product: "[data-product], .producto, .card",
+  name: "[data-name-el], .producto__nombre, .card__body h3, h3",
+  price: "[data-price-el], .price, .precio",
+  qty: ".qty__value, .cantidad, [data-qty]",
+  subtotal: ".order-total, [data-subtotal]",
+  cartList: "#cart-items",
+  cartTotal: "#cart-total",
+  whatsappBtn: "#btn-whatsapp",
+};
 
-    <!-- MENU -->
-    <section class="section section--alt" id="menu">
-      <div class="container">
-        <h2 class="section__title">Los más pedidos</h2>
-        <div class="cards">
+/* ---------- ESTADO ---------- */
+// Carrito: id del producto -> { name, price, qty }
+const cart = new Map();
 
-          <article class="card">
-            <img src="images/v2_3578.png" alt="Doble Smash Burger">
-            <div class="card__body">
-              <h3>Doble Smash Burger</h3>
-              <p>Dos medallones smash, cheddar fundido, pickles y salsa de la casa en pan brioche.</p>
-              <div class="card__footer">
-                <span class="price">$9.500</span>
-                <a href="#" class="btn btn--small">Agregar</a>
-              </div>
-            </div>
-          </article>
+/* ---------- UTILIDADES ---------- */
 
-          <article class="card">
-            <img src="images/v2_3579.png" alt="Pizza de aceitunas y muzzarella">
-            <div class="card__body">
-              <h3>Pizza Muzzarella &amp; Aceitunas</h3>
-              <p>Masa de fermentación lenta, mucho queso, aceitunas negras y orégano.</p>
-              <div class="card__footer">
-                <span class="price">$11.200</span>
-                <a href="#" class="btn btn--small">Agregar</a>
-              </div>
-            </div>
-          </article>
+// 9500 -> "$9.500"
+function formatMoney(amount) {
+  return CONFIG.currency + amount.toLocaleString(CONFIG.locale);
+}
 
-          <article class="card">
-            <img src="images/v2_3580.png" alt="Empanadas con chimichurri">
-            <div class="card__body">
-              <h3>Empanadas de carne</h3>
-              <p>Horneadas, con repulgue clásico y chimichurri casero para acompañar.</p>
-              <div class="card__footer">
-                <span class="price">$2.400 c/u</span>
-                <a href="#" class="btn btn--small">Agregar</a>
-              </div>
-            </div>
-          </article>
+// Convierte "$9.500" o "9500" en el número 9500.
+function parsePrice(text) {
+  return parseInt(String(text).replace(/\D/g, ""), 10) || 0;
+}
 
-          <article class="card">
-            <img src="images/v2_3581.png" alt="Papas rústicas con alioli">
-            <div class="card__body">
-              <h3>Papas rústicas</h3>
-              <p>Gajos dorados con sal en escamas, romero y alioli de pimentón.</p>
-              <div class="card__footer">
-                <span class="price">$4.800</span>
-                <a href="#" class="btn btn--small">Agregar</a>
-              </div>
-            </div>
-          </article>
+function getName(card) {
+  if (card.dataset.name) return card.dataset.name;
+  const el = card.querySelector(SEL.name);
+  return el ? el.textContent.trim() : "Producto";
+}
 
-          <article class="card">
-            <img src="images/v2_3582.png" alt="Smash Burger con cebolla">
-            <div class="card__body">
-              <h3>Smash Cebolla Crispy</h3>
-              <p>Doble carne, cheddar, pickles y cebolla picada fresca. Un clásico renovado.</p>
-              <div class="card__footer">
-                <span class="price">$9.900</span>
-                <a href="#" class="btn btn--small">Agregar</a>
-              </div>
-            </div>
-          </article>
+function getPrice(card) {
+  if (card.dataset.price) return parsePrice(card.dataset.price);
+  const el = card.querySelector(SEL.price);
+  return el ? parsePrice(el.textContent) : 0;
+}
 
-          <article class="card">
-            <img src="images/v2_3583.png" alt="Smash Burger con lechuga">
-            <div class="card__body">
-              <h3>Smash Clásica</h3>
-              <p>Doble carne, cheddar, lechuga, pickles y salsa rosa, con papas rústicas.</p>
-              <div class="card__footer">
-                <span class="price">$9.200</span>
-                <a href="#" class="btn btn--small">Agregar</a>
-              </div>
-            </div>
-          </article>
+function getId(card) {
+  return card.dataset.id || getName(card);
+}
 
-        </div>
-      </div>
-    </section>
+// Cantidad actual de la tarjeta (nunca menor a 1).
+function getQty(card) {
+  const el = card.querySelector(SEL.qty);
+  const value = el ? parseInt(el.textContent, 10) : 1;
+  return Number.isNaN(value) || value < 1 ? 1 : value;
+}
 
-    <!-- COMO FUNCIONA -->
-    <section class="section" id="como-funciona">
-      <div class="container">
-        <h2 class="section__title">Pedir es fácil</h2>
-        <div class="steps">
-          <div class="step">
-            <span class="step__num">1</span>
-            <h3>Elegí</h3>
-            <p>Explorá el menú y armá tu pedido.</p>
-          </div>
-          <div class="step">
-            <span class="step__num">2</span>
-            <h3>Pagá</h3>
-            <p>Con tarjeta, transferencia o efectivo.</p>
-          </div>
-          <div class="step">
-            <span class="step__num">3</span>
-            <h3>Disfrutá</h3>
-            <p>Seguí tu pedido en vivo hasta tu puerta.</p>
-          </div>
-        </div>
-      </div>
-    </section>
+function setQty(card, qty) {
+  const el = card.querySelector(SEL.qty);
+  if (el) el.textContent = qty;
+  updateSubtotal(card);
+}
 
-    <!-- CTA -->
-    <section class="cta">
-      <div class="container cta__inner">
-        <h2>Descargá la app de Ringcon Go</h2>
-        <p>Pedí más rápido y accedé a promos exclusivas.</p>
-        <div class="cta__buttons">
-          <a href="#" class="btn btn--light">App Store</a>
-          <a href="#" class="btn btn--light">Google Play</a>
-        </div>
-      </div>
-    </section>
+// Total de la tarjeta = precio x cantidad.
+function updateSubtotal(card) {
+  const total = getPrice(card) * getQty(card);
+  card.querySelectorAll(SEL.subtotal).forEach((el) => {
+    el.textContent = formatMoney(total);
+  });
+}
 
-  </main>
+// Detecta qué hace un botón: data-action, id o el símbolo que muestra.
+function getAction(el) {
+  if (el.dataset.action) return el.dataset.action;
+  if (el.matches(SEL.whatsappBtn)) return "order";
+  const text = el.textContent.trim();
+  if (text === "+") return "plus";
+  if (text === "-" || text === "−" || text === "–") return "minus";
+  return null;
+}
 
-  <footer class="footer">
-    <div class="container footer__inner">
-      <a href="#" class="logo logo--light">Ringcon <span>Go</span></a>
-      <p>© 2026 Ringcon Go. Todos los derechos reservados.</p>
-    </div>
-  </footer>
-<script src="script.js"></script>
-</body>
-</html>
+/* ---------- CARRITO ---------- */
+
+function cartTotal() {
+  let total = 0;
+  cart.forEach((item) => (total += item.price * item.qty));
+  return total;
+}
+
+function renderCart() {
+  const list = document.querySelector(SEL.cartList);
+  const totalEl = document.querySelector(SEL.cartTotal);
+
+  if (list) {
+    list.innerHTML = "";
+    cart.forEach((item) => {
+      const li = document.createElement("li");
+      li.textContent = `${item.qty} x ${item.name} — ${formatMoney(item.price * item.qty)}`;
+      list.appendChild(li);
+    });
+  }
+  if (totalEl) totalEl.textContent = formatMoney(cartTotal());
+}
+
+function addToCart(card) {
+  const id = getId(card);
+  // Si ya estaba, se reemplaza por la cantidad actual elegida.
+  cart.set(id, { name: getName(card), price: getPrice(card), qty: getQty(card) });
+  renderCart();
+}
+
+/* ---------- WHATSAPP ---------- */
+
+function buildMessage(items) {
+  let total = 0;
+  const lines = items.map((item) => {
+    const subtotal = item.price * item.qty;
+    total += subtotal;
+    return `• ${item.qty} x ${item.name} — ${formatMoney(subtotal)}`;
+  });
+
+  return [
+    `¡Hola! Quiero hacer un pedido en ${CONFIG.businessName}:`,
+    "",
+    ...lines,
+    "",
+    `Total: ${formatMoney(total)}`,
+    "",
+    CONFIG.addressLine,
+  ].join("\n");
+}
+
+function sendToWhatsApp(items) {
+  if (!items.length) {
+    alert(CONFIG.emptyCartMessage);
+    return;
+  }
+  const url = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(buildMessage(items))}`;
+  // Abre WhatsApp Web (PC) o la app (celular). Si el navegador bloquea la pestaña, abre en la misma.
+  const win = window.open(url, "_blank", "noopener");
+  if (!win) window.location.href = url;
+}
+
+/* ---------- EVENTOS ---------- */
+
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("button, a, [role='button']");
+  if (!el) return;
+
+  // 1) Evita saltos: botones y enlaces "#" no deben mover la página hacia arriba.
+  if (el.tagName === "BUTTON" || el.getAttribute("role") === "button" || el.getAttribute("href") === "#") {
+    e.preventDefault();
+  }
+
+  const action = getAction(el);
+  if (!action) return;
+
+  const card = el.closest(SEL.product);
+
+  switch (action) {
+    case "plus": // 2) Sumar
+      if (card) {
+        setQty(card, getQty(card) + 1);
+        if (cart.has(getId(card))) addToCart(card); // mantiene el carrito al día
+      }
+      break;
+
+    case "minus": // 2) Restar (mínimo 1)
+      if (card) {
+        setQty(card, Math.max(1, getQty(card) - 1));
+        if (cart.has(getId(card))) addToCart(card);
+      }
+      break;
+
+    case "add": // Agregar al carrito
+      if (card) addToCart(card);
+      break;
+
+    case "order": // 4) Pedir por WhatsApp
+      if (card) {
+        // Botón dentro de una tarjeta: pide solo ese producto.
+        sendToWhatsApp([{ name: getName(card), price: getPrice(card), qty: getQty(card) }]);
+      } else {
+        // Botón general: pide todo el carrito.
+        sendToWhatsApp(Array.from(cart.values()));
+      }
+      break;
+  }
+});
+
+/* ---------- INICIO ---------- */
+
+// Si las tarjetas se generan dinámicamente, el subtotal se calcula al cargar la página.
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll(SEL.product).forEach((card) => {
+    if (card.querySelector(SEL.qty)) setQty(card, getQty(card));
+  });
+  renderCart();
+});
