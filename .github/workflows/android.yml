@@ -9,36 +9,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Generate Android APK
+        uses: pwa-builder/pwabuilder-action@v1.1
         with:
-          node-version: 18
+          url: 'https://ringcon-go.vercel.app'
+          output-dir: 'android-app'
 
-      - name: Build Capacitor Android App
-        run: |
-          npm init -y
-          npm install @capacitor/core@5 @capacitor/cli@5 @capacitor/android@5
-          npx cap init "Ringcon Go" "com.ringcongo.app" --web-dir .
-          npx cap add android
-          npx cap sync android
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      - name: Build APK with Gradle
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
-
-      - name: Upload APK Artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ringcon-go-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android-app/
