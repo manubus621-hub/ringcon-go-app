@@ -1,1 +1,414 @@
-<!DOCTYPE html><html><head><link href="https://fonts.googleapis.com/css?family=Inter&display=swap" rel="stylesheet" /><link href="./css/main.css" rel="stylesheet" /><title>Document</title></head><body><div class="v2_3706"><div class="v2_3707"><span class="v2_3708">20:14</span><div class="v2_3709"><div class="v2_4170"><div class="v2_4171"></div></div><div class="v2_4173"><div class="v2_4174"></div></div><div class="v2_4176"><div class="v2_4177"></div></div></div></div><div class="v2_3713"><div class="v2_3714"><div class="v2_4179"><div class="v2_4180"></div></div></div><div class="v2_3716"><span class="v2_3717">Armá tu hamburguesa</span><span class="v2_3718">La Esquina</span></div><div class="v2_3719"><span class="v2_3720">DEMO</span></div></div><div class="v2_3721"><div class="v2_3722"></div><div class="v2_3723"><span class="v2_3724">EL ANTOJO FAVORITO</span></div></div><div class="v2_3725"><div class="v2_3726"><div class="v2_3727"><span class="v2_3728">Clásica doble</span><span class="v2_3729">$8.500</span></div><span class="v2_3730">Dos medallones de carne, cheddar, pepinos y salsa de la casa en pan brioche tostado.</span><span class="v2_3731">Contiene gluten y lácteos.</span></div><div class="v2_3732"></div><div class="v2_3733"><div class="v2_3734"><span class="v2_3735">Un toque más</span><span class="v2_3736">Elegí 1 opción</span></div><span class="v2_3737">El extra se suma a cada hamburguesa.</span><div class="v2_3738"><div class="v2_3739"></div><span class="v2_3740">Sin extra</span><span class="v2_3741">Sin cargo</span></div><div class="v2_3742"><div class="v2_3743"></div><span class="v2_3744">Extra cheddar</span><span class="v2_3745">+ $1.000</span></div></div><div class="v2_3746"><div class="v2_3747"><span class="v2_3748">A tu gusto</span><span class="v2_3749">Opcional</span></div><div class="v2_3750"><div class="v2_3751"><div class="v2_4182"><div class="v2_4183"></div></div></div><span class="v2_3753">Sin cebolla</span><span class="v2_3754">Sin cargo</span></div></div></div><div class="v2_3755"><div class="v2_3756"><div class="v2_3757"><div class="v2_4185"><div class="v2_4186"></div></div><span class="v2_3759">2</span><div class="v2_4188"><div class="v2_4189"></div></div></div><div class="v2_3761"><span class="v2_3762">$9.500 cada una</span><span class="v2_3763">Con extra cheddar</span></div></div><div class="v2_3764"><span class="v2_3765">Agregar 2 al pedido</span><span class="v2_3766">$19.000</span></div></div><div class="v2_3767"><div class="v2_3768"></div></div></div></body></html>
+/* ===== Variables y reset ===== */
+:root {
+  --brand: #d9541e;
+  --brand-dark: #b8430f;
+  --accent: #f6b73c;
+  --dark: #2a1d16;
+  --text: #4a3b33;
+  --muted: #8a776c;
+  --bg: #fffaf5;
+  --bg-alt: #f8ede2;
+  --white: #ffffff;
+  --radius: 18px;
+  --shadow: 0 10px 30px rgba(42, 29, 22, 0.1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "Poppins", system-ui, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.6;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.container {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+/* ===== Botones ===== */
+.btn {
+  display: inline-block;
+  padding: 0.85rem 1.6rem;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--white);
+  font-weight: 600;
+  text-align: center;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.btn:hover {
+  background: var(--brand-dark);
+  transform: translateY(-2px);
+}
+
+.btn--small {
+  padding: 0.5rem 1.1rem;
+  font-size: 0.9rem;
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--brand);
+  border: 2px solid var(--brand);
+}
+
+.btn--ghost:hover {
+  background: var(--brand);
+  color: var(--white);
+}
+
+.btn--light {
+  background: var(--white);
+  color: var(--brand);
+}
+
+.btn--light:hover {
+  background: var(--accent);
+  color: var(--dark);
+}
+
+/* ===== Header ===== */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(255, 250, 245, 0.95);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--bg-alt);
+}
+
+.header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.8rem;
+  padding-bottom: 0.8rem;
+}
+
+.logo {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--dark);
+}
+
+.logo span {
+  color: var(--brand);
+}
+
+.logo--light {
+  color: var(--white);
+}
+
+.nav {
+  display: none;
+  gap: 1.5rem;
+  font-weight: 600;
+}
+
+.nav a:hover {
+  color: var(--brand);
+}
+
+/* ===== Hero ===== */
+.hero {
+  padding: 2rem 0 3rem;
+  background: linear-gradient(180deg, var(--bg-alt), var(--bg));
+}
+
+.hero__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.tag {
+  display: inline-block;
+  padding: 0.35rem 0.9rem;
+  margin-bottom: 1rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--dark);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.hero h1 {
+  font-size: clamp(2rem, 8vw, 3.4rem);
+  line-height: 1.1;
+  color: var(--dark);
+  margin-bottom: 1rem;
+}
+
+.hero__text p {
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.hero__image img {
+  width: 100%;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  object-fit: cover;
+}
+
+/* ===== Secciones ===== */
+.section {
+  padding: 3rem 0;
+}
+
+.section--alt {
+  background: var(--bg-alt);
+}
+
+.section__title {
+  font-size: clamp(1.5rem, 5vw, 2.2rem);
+  color: var(--dark);
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+/* ===== Categorías ===== */
+.categories {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.category {
+  display: flex;
+  flex-direction: column;
+  background: var(--white);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s;
+}
+
+.category:hover {
+  transform: translateY(-4px);
+}
+
+.category img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+.category span {
+  padding: 0.8rem;
+  text-align: center;
+  font-weight: 700;
+  color: var(--dark);
+}
+
+/* ===== Tarjetas de menú ===== */
+.cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  background: var(--white);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.card img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.card__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 1.1rem;
+}
+
+.card__body h3 {
+  color: var(--dark);
+  margin-bottom: 0.4rem;
+}
+
+.card__body p {
+  flex: 1;
+  color: var(--muted);
+  font-size: 0.92rem;
+  margin-bottom: 1rem;
+}
+
+.card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.price {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--brand);
+}
+
+/* ===== Pasos ===== */
+.steps {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+.step {
+  text-align: center;
+  padding: 1.5rem;
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.step__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 0.8rem;
+  border-radius: 50%;
+  background: var(--brand);
+  color: var(--white);
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.step h3 {
+  color: var(--dark);
+  margin-bottom: 0.3rem;
+}
+
+.step p {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+/* ===== CTA ===== */
+.cta {
+  padding: 3rem 0;
+  background: var(--brand);
+  color: var(--white);
+  text-align: center;
+}
+
+.cta__inner h2 {
+  font-size: clamp(1.4rem, 5vw, 2rem);
+  margin-bottom: 0.5rem;
+}
+
+.cta__inner p {
+  margin-bottom: 1.5rem;
+  opacity: 0.9;
+}
+
+.cta__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.8rem;
+}
+
+/* ===== Footer ===== */
+.footer {
+  padding: 2rem 0;
+  background: var(--dark);
+  color: #cdbfb5;
+}
+
+.footer__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+/* ===== Tablet ===== */
+@media (min-width: 640px) {
+  .categories {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .steps {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .footer__inner {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
+/* ===== Desktop ===== */
+@media (min-width: 900px) {
+  .nav {
+    display: flex;
+  }
+
+  .hero {
+    padding: 4rem 0;
+  }
+
+  .hero__inner {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .hero__text,
+  .hero__image {
+    flex: 1;
+  }
+
+  .cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
