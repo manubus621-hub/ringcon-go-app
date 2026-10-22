@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ringcon Go | Delivery de comida</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fff7ed',
+              100: '#ffedd5',
+              500: '#f97316',
+              600: '#ff6a00',
+              700: '#ea580c',
+            },
+            dark: '#0f172a',
+            surface: '#f8fafc'
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          boxShadow: {
+            'glow': '0 8px 25px -5px rgba(249, 115, 22, 0.25)',
+            'card': '0 4px 20px -2px rgba(15, 23, 42, 0.05)',
+            'soft': '0 10px 30px -5px rgba(0, 0, 0, 0.04)'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 99px;
+    }
+
+    /* View Transitions */
+    .view-screen {
+      display: none;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .view-screen.active {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Interactive press feel */
+    .btn-press {
+      transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease, background-color 0.15s ease;
+    }
+    .btn-press:active {
+      transform: scale(0.96);
+    }
+
+    /* Custom Checkbox Style */
+    .custom-checkbox:checked {
+      background-color: #f97316;
+      border-color: #f97316;
+    }
+
+    /* Pulse animation for live delivery state */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.1); opacity: 0.4; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .animate-pulse-ring {
+      animation: pulse-ring 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between pb-12 sm:pb-0">
+
+  <!-- ================= HEADER FIXED MINIMAL ================= -->
+  <header class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-100 transition-all">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
+      
+      <!-- Logo -->
+      <a href="#" onclick="switchView('view-catalog')" class="flex items-center gap-2 group">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 to-brand-500 flex items-center justify-center text-white shadow-glow group-hover:scale-105 transition-transform">
+          <i data-lucide="utensils" class="w-5 h-5"></i>
+        </div>
+        <span class="text-xl font-extrabold tracking-tight text-slate-900">
+          Ringcon<span class="text-brand-500 ml-0.5">Go</span>
+        </span>
+      </a>
+
+      <!-- Quick Nav Status & Cart trigger -->
+      <div class="flex items-center gap-3">
+        <button onclick="scrollToCart()" class="btn-press relative flex items-center gap-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-4 py-2.5 rounded-full text-sm transition-all">
+          <i data-lucide="shopping-bag" class="w-4 h-4 text-brand-600"></i>
+          <span class="hidden sm:inline">Mi Pedido</span>
+          <span id="header-cart-badge" class="bg-brand-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">0</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ================= MAIN CONTENT AREA ================= -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-16 w-full flex-grow">
+
+    <!-- ================================================================= -->
+    <!-- VISTA 1: CATÁLOGO Y MENÚ PRINCIPAL                                -->
+    <!-- ================================================================= -->
+    <section id="view-catalog" class="view-screen active">
+      
+      <!-- Hero Banner Minimalista -->
+      <div class="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-6 sm:p-10 text-white mb-8 shadow-card">
+        <div class="relative z-10 max-w-xl">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-500/20 text-brand-500 text-xs font-bold uppercase tracking-wider mb-3 border border-brand-500/30">
+            <i data-lucide="zap" class="w-3.5 h-3.5"></i> Delivery ultra rápido
+          </span>
+          <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight mb-2">
+            Sabores auténticos directo a tu puerta
+          </h1>
+          <p class="text-slate-300 text-sm sm:text-base font-normal">
+            Hamburguesas jugosas, pizzas artesanales y adicionales crujientes con ingredientes premium.
+          </p>
+        </div>
+        <!-- Decorative abstract glow -->
+        <div class="absolute -right-12 -bottom-12 w-64 h-64 bg-brand-500/20 rounded-full blur-3xl pointer-events-none"></div>
+      </div>
+
+      <!-- Filtro de Categorías Pill-style -->
+      <div class="flex items-center gap-2 overflow-x-auto pb-4 mb-8 no-scrollbar scroll-smooth">
+        <button onclick="filterCategory('all')" class="cat-btn btn-press active px-5 py-2.5 rounded-full text-sm font-bold bg-brand-500 text-white shadow-glow whitespace-nowrap">
+          Todos los platos
+        </button>
+        <button onclick="filterCategory('burgers')" class="cat-btn btn-press px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80 whitespace-nowrap">
+          🍔 Hamburguesas
+        </button>
+        <button onclick="filterCategory('pizzas')" class="cat-btn btn-press px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80 whitespace-nowrap">
+          🍕 Pizzas
+        </button>
+        <button onclick="filterCategory('empanadas')" class="cat-btn btn-press px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80 whitespace-nowrap">
+          🥟 Empanadas
+        </button>
+        <button onclick="filterCategory('papas')" class="cat-btn btn-press px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80 whitespace-nowrap">
+          🍟 Papas
+        </button>
+        <button onclick="filterCategory('bebidas')" class="cat-btn btn-press px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80 whitespace-nowrap">
+          🥤 Bebidas
+        </button>
+      </div>
+
+      <!-- Layout Grid: Menú (Izquierda/Arriba) + Carrito Resumen (Derecha/Abajo) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        <!-- Grid de Productos (8 Cols) -->
+        <div class="lg:col-span-8">
+          <div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <!-- Los productos se inyectan dinámicamente vía JS -->
+          </div>
+        </div>
+
+        <!-- Sidebar Carrito Minimal (4 Cols) -->
+        <div id="cart-section" class="lg:col-span-4 sticky top-28">
+          <div class="bg-white rounded-3xl p-6 border border-slate-100 shadow-soft">
+            <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+              <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <i data-lucide="shopping-bag" class="w-5 h-5 text-brand-500"></i>
+                Tu pedido
+              </h2>
+              <span id="cart-count-subtitle" class="text-xs font-semibold text-slate-400">0 ítems</span>
+            </div>
+
+            <!-- Lista de Ítems -->
+            <div id="cart-items-list" class="space-y-3 max-h-72 overflow-y-auto pr-1">
+              <!-- Render de productos agregados -->
+            </div>
+
+            <!-- Precios y Botón Terminar -->
+            <div class="mt-6 pt-4 border-t border-slate-100 space-y-2">
+              <div class="flex justify-between text-slate-500 text-sm">
+                <span>Subtotal</span>
+                <span id="cart-subtotal" class="font-medium text-slate-700">$0</span>
+              </div>
+              <div class="flex justify-between text-slate-500 text-sm">
+                <span>Costo de envío</span>
+                <span class="font-semibold text-emerald-600">¡GRATIS!</span>
+              </div>
+              <div class="flex justify-between text-slate-900 font-extrabold text-lg pt-2 border-t border-slate-100">
+                <span>Total</span>
+                <span id="cart-total" class="text-brand-600">$0</span>
+              </div>
+
+              <button id="btn-terminar-pedido" onclick="goToCheckout()" class="btn-press w-full mt-4 bg-brand-500 hover:bg-brand-600 text-white font-bold py-3.5 px-6 rounded-full shadow-glow flex items-center justify-center gap-2 transition-all">
+                <span>Terminar pedido</span>
+                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- VISTA 2: PERSONALIZACIÓN Y EXTRAS (MODAL / PANTALLA LIMPIA)        -->
+    <!-- ================================================================= -->
+    <section id="view-extras" class="view-screen max-w-2xl mx-auto">
+      
+      <button onclick="switchView('view-catalog')" class="btn-press mb-6 inline-flex items-center gap-2 text-slate-500 hover:text-slate-800 font-semibold text-sm bg-white px-4 py-2 rounded-full border border-slate-200">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i> Volver a la carta
+      </button>
+
+      <div class="bg-white rounded-3xl border border-slate-100 shadow-soft overflow-hidden">
+        
+        <!-- Header Imagen del Producto -->
+        <div class="relative h-64 sm:h-72 w-full bg-slate-100">
+          <img id="extras-item-img" src="" alt="Producto" class="w-full h-full object-cover">
+          <div class="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent"></div>
+          <div class="absolute bottom-6 left-6 right-6 text-white">
+            <span id="extras-item-category" class="text-xs font-bold uppercase tracking-wider bg-brand-500 text-white px-3 py-1 rounded-full mb-2 inline-block">Categoría</span>
+            <h2 id="extras-item-title" class="text-2xl sm:text-3xl font-extrabold">Nombre Producto</h2>
+            <p id="extras-item-desc" class="text-slate-200 text-sm mt-1 line-clamp-2">Descripción breve</p>
+          </div>
+        </div>
+
+        <!-- Contenido de Extras -->
+        <div class="p-6 sm:p-8 space-y-6">
+          
+          <div>
+            <h3 class="text-base font-bold text-slate-900 mb-1">Elegí tus adicionales</h3>
+            <p class="text-xs text-slate-400 mb-4">Personaliza tu pedido como más te guste</p>
+
+            <div id="extras-options-container" class="space-y-3">
+              <!-- Checkboxes generados dinámicamente -->
+            </div>
+          </div>
+
+          <!-- Selector de Cantidad -->
+          <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+            <span class="font-bold text-slate-800">Cantidad</span>
+            <div class="flex items-center gap-4 bg-slate-100 px-3 py-1.5 rounded-full">
+              <button onclick="updateTempQty(-1)" class="w-8 h-8 rounded-full bg-white text-slate-700 font-bold flex items-center justify-center hover:bg-slate-200 transition-colors btn-press">
+                <i data-lucide="minus" class="w-4 h-4"></i>
+              </button>
+              <span id="extras-qty-val" class="font-extrabold text-slate-900 w-6 text-center">1</span>
+              <button onclick="updateTempQty(1)" class="w-8 h-8 rounded-full bg-white text-slate-700 font-bold flex items-center justify-center hover:bg-slate-200 transition-colors btn-press">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Botón Confirmar -->
+          <div class="pt-4">
+            <button onclick="confirmAndAddToCart()" class="btn-press w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-4 px-6 rounded-full shadow-glow flex items-center justify-between transition-all">
+              <span>Agregar al pedido</span>
+              <span id="extras-calculated-price" class="text-lg font-extrabold">$0</span>
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- VISTA 3: CHECKOUT / PAGO Y TARJETA                                -->
+    <!-- ================================================================= -->
+    <section id="view-checkout" class="view-screen max-w-2xl mx-auto">
+      
+      <button onclick="switchView('view-catalog')" class="btn-press mb-6 inline-flex items-center gap-2 text-slate-500 hover:text-slate-800 font-semibold text-sm bg-white px-4 py-2 rounded-full border border-slate-200">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i> Modificar pedido
+      </button>
+
+      <div id="checkout-main-card" class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-soft space-y-6">
+        
+        <div>
+          <h2 class="text-2xl font-extrabold text-slate-900">Finalizar compra</h2>
+          <p class="text-sm text-slate-400">Revisá tu resumen e ingresá la forma de pago</p>
+        </div>
+
+        <!-- Resumen Rápido -->
+        <div class="bg-slate-50 rounded-2xl p-4 space-y-2 text-sm border border-slate-100">
+          <div class="flex justify-between font-bold text-slate-800 pb-2 border-b border-slate-200">
+            <span id="checkout-summary-count">0 Productos</span>
+            <span id="checkout-summary-total" class="text-brand-600">$0</span>
+          </div>
+          <div id="checkout-summary-list" class="space-y-1 text-slate-600 pt-1 text-xs">
+            <!-- Ítems -->
+          </div>
+        </div>
+
+        <!-- OPCIÓN A: TARJETA GUARDADA -->
+        <div id="saved-card-box" class="hidden space-y-4">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Método de pago guardado</label>
+          
+          <!-- Tarjeta Virtual Gráfica Minimalista -->
+          <div class="relative overflow-hidden bg-gradient-to-tr from-slate-900 via-slate-800 to-brand-900 text-white rounded-2xl p-6 shadow-card">
+            <div class="flex justify-between items-start mb-6">
+              <span class="font-extrabold tracking-widest text-brand-500 text-sm">RINGCON CARD</span>
+              <i data-lucide="credit-card" class="w-6 h-6 text-slate-300"></i>
+            </div>
+            <div class="text-lg tracking-widest font-mono mb-4" id="saved-card-number-display">
+              •••• •••• •••• 1234
+            </div>
+            <div class="flex justify-between text-xs text-slate-300 font-medium">
+              <div>
+                <span class="block text-[10px] text-slate-400 uppercase">Titular</span>
+                <span id="saved-card-holder-display">JUAN PEREZ</span>
+              </div>
+              <div>
+                <span class="block text-[10px] text-slate-400 uppercase">Estado</span>
+                <span class="text-emerald-400 font-bold">● Activa</span>
+              </div>
+            </div>
+          </div>
+
+          <button onclick="payWithSavedCard()" class="btn-press w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-4 px-6 rounded-full shadow-glow flex items-center justify-center gap-2">
+            <i data-lucide="check-circle" class="w-5 h-5"></i>
+            <span>Pagar con esta tarjeta (<span id="btn-saved-digits">**** 1234</span>)</span>
+          </button>
+
+          <button onclick="useOtherCard()" class="w-full text-center text-xs font-semibold text-slate-400 hover:text-slate-600 py-2">
+            Usar otra tarjeta de crédito/débito
+          </button>
+        </div>
+
+        <!-- OPCIÓN B: FORMULARIO DE NUEVA TARJETA -->
+        <form id="new-card-form" onsubmit="handleNewCardPay(event)" class="space-y-4">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Ingresá los datos de tu tarjeta</label>
+          
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Número de Tarjeta</label>
+            <div class="relative">
+              <input type="text" id="card-num" placeholder="4500 0000 0000 0000" maxlength="19" required
+                class="w-full bg-slate-50 border border-slate-200 rounded-full py-3 px-4 pl-11 text-sm font-medium focus:outline-none focus:border-brand-500 focus:bg-white transition-all">
+              <i data-lucide="credit-card" class="w-4 h-4 text-slate-400 absolute left-4 top-3.5"></i>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre del Titular</label>
+            <input type="text" id="card-name" placeholder="Como figura en la tarjeta" required
+              class="w-full bg-slate-50 border border-slate-200 rounded-full py-3 px-4 text-sm font-medium focus:outline-none focus:border-brand-500 focus:bg-white transition-all">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Vencimiento</label>
+              <input type="text" id="card-exp" placeholder="MM/AA" maxlength="5" required
+                class="w-full bg-slate-50 border border-slate-200 rounded-full py-3 px-4 text-sm font-medium focus:outline-none focus:border-brand-500 focus:bg-white transition-all">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">CVC / CVV</label>
+              <input type="password" id="card-cvv" placeholder="123" maxlength="4" required
+                class="w-full bg-slate-50 border border-slate-200 rounded-full py-3 px-4 text-sm font-medium focus:outline-none focus:border-brand-500 focus:bg-white transition-all">
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 pt-2">
+            <input type="checkbox" id="save-card-check" checked class="w-4 h-4 text-brand-500 rounded border-slate-300 focus:ring-brand-500 custom-checkbox">
+            <label for="save-card-check" class="text-xs font-medium text-slate-600">Guardar esta tarjeta para futuras compras</label>
+          </div>
+
+          <button type="submit" class="btn-press w-full mt-4 bg-brand-500 hover:bg-brand-600 text-white font-bold py-4 px-6 rounded-full shadow-glow flex items-center justify-center gap-2">
+            <i data-lucide="lock" class="w-4 h-4"></i>
+            <span>Guardar tarjeta y Pagar</span>
+          </button>
+        </form>
+
+      </div>
+
+      <!-- ANIMACIÓN PAGO EXITOSO / TRACKING DEL DELIVERY -->
+      <div id="checkout-success" class="hidden bg-white rounded-3xl p-8 border border-slate-100 shadow-soft text-center space-y-6">
+        
+        <div class="relative w-20 h-20 mx-auto flex items-center justify-center">
+          <div class="absolute inset-0 bg-emerald-100 rounded-full animate-pulse-ring"></div>
+          <div class="relative z-10 w-16 h-16 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg">
+            <i data-lucide="check" class="w-8 h-8"></i>
+          </div>
+        </div>
+
+        <div>
+          <span class="text-xs font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">¡Pedido Confirmado!</span>
+          <h2 class="text-2xl font-extrabold text-slate-900 mt-2">Tu comida está en preparación</h2>
+          <p class="text-xs text-slate-400 mt-1">Tiempo estimado de entrega: <strong class="text-slate-700">25 - 35 min</strong></p>
+        </div>
+
+        <!-- Order progress bar -->
+        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
+          <div class="flex justify-between text-xs font-semibold text-slate-600">
+            <span>Recibido</span>
+            <span class="text-brand-600 font-bold">En Cocina</span>
+            <span class="text-slate-300">En Camino</span>
+          </div>
+          <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+            <div class="bg-brand-500 h-full w-2/3 rounded-full"></div>
+          </div>
+        </div>
+
+        <div class="pt-2 space-y-3">
+          <button onclick="sendOrderToWhatsApp()" class="btn-press w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 px-6 rounded-full shadow-md flex items-center justify-center gap-2">
+            <i data-lucide="message-circle" class="w-5 h-5"></i>
+            <span>Enviar detalle por WhatsApp</span>
+          </button>
+
+          <button onclick="resetApp()" class="btn-press w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-6 rounded-full text-sm">
+            Volver al Inicio
+          </button>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ================= FOOTER MINIMAL ================= -->
+  <footer class="bg-white border-t border-slate-100 py-6">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 text-center">
+      <p class="text-xs text-slate-400">
+        © 2026 <strong class="text-slate-600">Ringcon Go</strong>. Todos los derechos reservados. Delivery rápido y minimalista.
+      </p>
+    </div>
+  </footer>
+
+  <!-- ================= JAVASCRIPT LOGIC ================= -->
+  <script>
+    // --- BASE DE DATOS DE PRODUCTOS ---
+    const PRODUCTS = [
+      {
+        id: 'smash-double',
+        name: 'Doble Smash Burger',
+        category: 'burgers',
+        price: 9500,
+        desc: 'Dos medallones smash de carne, doble cheddar flameado, pickles y salsa especial.',
+        image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80',
+        extras: [
+          { id: 'ex-cheddar', name: 'Extra Cheddar', price: 1000 },
+          { id: 'ex-bacon', name: 'Bacon crujiente', price: 1500 },
+          { id: 'ex-salsa', name: 'Salsa Especial Ringcon', price: 500 }
+        ]
+      },
+      {
+        id: 'smash-bacon',
+        name: 'Oklahoma Sweet Bacon',
+        category: 'burgers',
+        price: 10800,
+        desc: 'Cebolla caramelizada en el smash, cheddar ahumado y bacon crocante.',
+        image: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=600&q=80',
+        extras: [
+          { id: 'ex-cheddar', name: 'Extra Cheddar', price: 1000 },
+          { id: 'ex-bacon', name: 'Bacon crujiente', price: 1500 },
+          { id: 'ex-salsa', name: 'Salsa Especial Ringcon', price: 500 }
+        ]
+      },
+      {
+        id: 'pizza-muzza',
+        name: 'Pizza Muzzarella & Aceitunas',
+        category: 'pizzas',
+        price: 11200,
+        desc: 'Masa madre de 48hs de fermentación, salsa de tomate natural y abundante muzzarella.',
+        image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=600&q=80',
+        extras: [
+          { id: 'ex-queso', name: 'Extra Muzzarella', price: 1800 },
+          { id: 'ex-oregano', name: 'Aceite de oliva con ajo', price: 400 }
+        ]
+      },
+      {
+        id: 'pizza-pepperoni',
+        name: 'Pizza Pepperoni Supreme',
+        category: 'pizzas',
+        price: 13500,
+        desc: 'Base muzzarella cubierta con generosas rodajas de pepperoni tostado.',
+        image: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=600&q=80',
+        extras: [
+          { id: 'ex-queso', name: 'Extra Muzzarella', price: 1800 }
+        ]
+      },
+      {
+        id: 'empanadas-carne',
+        name: 'Empanada de Carne Suave (Unid)',
+        category: 'empanadas',
+        price: 2400,
+        desc: 'Carne cortada a cuchillo, sofrito tradicional y masa criolla horneada.',
+        image: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&w=600&q=80',
+        extras: [
+          { id: 'ex-chimi', name: 'Salsa Chimichurri Casera', price: 300 }
+        ]
+      },
+      {
+        id: 'papas-rusticas',
+        name: 'Papas Rústicas con Alioli',
+        category: 'papas',
+        price: 4800,
+        desc: 'Gajos de papa horneados con romero, sal en escamas y dip de alioli.',
+        image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=600&q=80',
+        extras: [
+          { id: 'ex-cheddar-papas', name: 'Bañado de Cheddar fundido', price: 1200 },
+          { id: 'ex-bacon-papas', name: 'Cebollín y Bacon picado', price: 1000 }
+        ]
+      },
+      {
+        id: 'coca-cola',
+        name: 'Coca-Cola Sabor Original 500ml',
+        category: 'bebidas',
+        price: 2200,
+        desc: 'Botella individual helada.',
+        image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80',
+        extras: []
+      }
+    ];
+
+    // --- ESTADO DE LA APLICACIÓN ---
+    let cart = {};
+    let currentSelectedItem = null;
+    let tempQty = 1;
+    let tempSelectedExtras = [];
+    let lastCompletedOrder = null;
+
+    // Fallback Image Handler
+    const PLACEHOLDER_IMG = 'https://placehold.co/600x400/f1f5f9/94a3b8?text=Ringcon+Go';
+
+    // --- INICIALIZACIÓN ---
+    document.addEventListener('DOMContentLoaded', () => {
+      renderProducts('all');
+      renderCart();
+      lucide.createIcons();
+    });
+
+    // --- NAVEGACIÓN DE PANTALLAS ---
+    function switchView(viewId) {
+      document.querySelectorAll('.view-screen').forEach(el => {
+        el.classList.remove('active');
+      });
+      const target = document.getElementById(viewId);
+      if (target) {
+        target.classList.add('active');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+
+    function scrollToCart() {
+      switchView('view-catalog');
+      const cartEl = document.getElementById('cart-section');
+      if (cartEl) {
+        cartEl.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    // --- RENDERIZADO DE PRODUCTOS ---
+    function renderProducts(category) {
+      const grid = document.getElementById('products-grid');
+      grid.innerHTML = '';
+
+      const filtered = category === 'all' 
+        ? PRODUCTS 
+        : PRODUCTS.filter(p => p.category === category);
+
+      filtered.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-soft hover:shadow-card transition-all flex flex-col justify-between group';
+        card.innerHTML = `
+          <div>
+            <div class="relative h-44 overflow-hidden bg-slate-100">
+              <img src="${p.image}" alt="${p.name}" 
+                   onerror="this.src='${PLACEHOLDER_IMG}'"
+                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+              <span class="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-slate-900 font-extrabold text-xs px-3 py-1 rounded-full shadow-sm">
+                $${p.price.toLocaleString('es-AR')}
+              </span>
+            </div>
+            <div class="p-5">
+              <h3 class="font-extrabold text-slate-900 text-base mb-1">${p.name}</h3>
+              <p class="text-slate-400 text-xs leading-relaxed line-clamp-2">${p.desc}</p>
+            </div>
+          </div>
+          <div class="p-5 pt-0">
+            <button onclick="openExtrasModal('${p.id}')" 
+                    class="btn-press w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-2.5 px-4 rounded-full shadow-glow text-sm flex items-center justify-center gap-1.5 transition-all">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span>Agregar</span>
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      lucide.createIcons();
+    }
+
+    function filterCategory(category) {
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        btn.classList.remove('bg-brand-500', 'text-white', 'shadow-glow');
+        btn.classList.add('bg-white', 'text-slate-600', 'border', 'border-slate-200/80');
+      });
+
+      event.currentTarget.classList.remove('bg-white', 'text-slate-600', 'border', 'border-slate-200/80');
+      event.currentTarget.classList.add('bg-brand-500', 'text-white', 'shadow-glow');
+
+      renderProducts(category);
+    }
+
+    // --- MANEJO DE EXTRAS Y PERSONALIZACIÓN (VISTA 2) ---
+    function openExtrasModal(productId) {
+      currentSelectedItem = PRODUCTS.find(p => p.id === productId);
+      if (!currentSelectedItem) return;
+
+      tempQty = 1;
+      tempSelectedExtras = [];
+
+      document.getElementById('extras-item-img').src = currentSelectedItem.image;
+      document.getElementById('extras-item-title').textContent = currentSelectedItem.name;
+      document.getElementById('extras-item-desc').textContent = currentSelectedItem.desc;
+      document.getElementById('extras-item-category').textContent = currentSelectedItem.category;
+      document.getElementById('extras-qty-val').textContent = tempQty;
+
+      // Generar Opciones de Extras
+      const container = document.getElementById('extras-options-container');
+      container.innerHTML = '';
+
+      if (currentSelectedItem.extras.length === 0) {
+        container.innerHTML = '<p class="text-xs text-slate-400 italic">Este producto no requiere adicionales opcionales.</p>';
+      } else {
+        currentSelectedItem.extras.forEach(extra => {
+          const row = document.createElement('label');
+          row.className = 'flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-slate-100/80 transition-colors';
+          row.innerHTML = `
+            <div class="flex items-center gap-3">
+              <input type="checkbox" data-extra-id="${extra.id}" onchange="toggleExtra('${extra.id}')"
+                     class="w-4 h-4 text-brand-500 rounded border-slate-300 focus:ring-brand-500 custom-checkbox">
+              <span class="text-xs font-semibold text-slate-700">${extra.name}</span>
+            </div>
+            <span class="text-xs font-bold text-slate-500">+$${extra.price.toLocaleString('es-AR')}</span>
+          `;
+          container.appendChild(row);
+        });
+      }
+
+      updateExtrasCalculatedPrice();
+      switchView('view-extras');
+    }
+
+    function toggleExtra(extraId) {
+      const idx = tempSelectedExtras.indexOf(extraId);
+      if (idx > -1) {
+        tempSelectedExtras.splice(idx, 1);
+      } else {
+        tempSelectedExtras.push(extraId);
+      }
+      updateExtrasCalculatedPrice();
+    }
+
+    function updateTempQty(delta) {
+      if (tempQty + delta >= 1) {
+        tempQty += delta;
+        document.getElementById('extras-qty-val').textContent = tempQty;
+        updateExtrasCalculatedPrice();
+      }
+    }
+
+    function updateExtrasCalculatedPrice() {
+      if (!currentSelectedItem) return;
+
+      let unitPrice = currentSelectedItem.price;
+      tempSelectedExtras.forEach(extraId => {
+        const extraObj = currentSelectedItem.extras.find(e => e.id === extraId);
+        if (extraObj) unitPrice += extraObj.price;
+      });
+
+      const total = unitPrice * tempQty;
+      document.getElementById('extras-calculated-price').textContent = `$${total.toLocaleString('es-AR')}`;
+    }
+
+    function confirmAndAddToCart() {
+      if (!currentSelectedItem) return;
+
+      // Construir objeto de extras seleccionados
+      const extrasObjects = tempSelectedExtras.map(id => currentSelectedItem.extras.find(e => e.id === id)).filter(Boolean);
+      
+      let unitPrice = currentSelectedItem.price;
+      extrasObjects.forEach(e => unitPrice += e.price);
+
+      const cartKey = `${currentSelectedItem.id}_${tempSelectedExtras.sort().join('-')}`;
+
+      if (cart[cartKey]) {
+        cart[cartKey].qty += tempQty;
+      } else {
+        cart[cartKey] = {
+          key: cartKey,
+          id: currentSelectedItem.id,
+          name: currentSelectedItem.name,
+          basePrice: currentSelectedItem.price,
+          unitPrice: unitPrice,
+          extras: extrasObjects,
+          qty: tempQty
+        };
+      }
+
+      renderCart();
+      switchView('view-catalog');
+    }
+
+    // --- MANEJO DEL CARRITO DE COMPRAS ---
+    function renderCart() {
+      const container = document.getElementById('cart-items-list');
+      container.innerHTML = '';
+
+      const keys = Object.keys(cart);
+      let subtotal = 0;
+      let itemCount = 0;
+
+      if (keys.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8 text-slate-300">
+            <i data-lucide="shopping-bag" class="w-10 h-10 mx-auto mb-2 opacity-50"></i>
+            <p class="text-xs font-semibold">Tu carrito está vacío</p>
+          </div>
+        `;
+        document.getElementById('btn-terminar-pedido').disabled = true;
+        document.getElementById('btn-terminar-pedido').classList.add('opacity-50', 'cursor-not-allowed');
+      } else {
+        document.getElementById('btn-terminar-pedido').disabled = false;
+        document.getElementById('btn-terminar-pedido').classList.remove('opacity-50', 'cursor-not-allowed');
+
+        keys.forEach(key => {
+          const item = cart[key];
+          const itemTotal = item.unitPrice * item.qty;
+          subtotal += itemTotal;
+          itemCount += item.qty;
+
+          const extrasText = item.extras.length > 0 
+            ? item.extras.map(e => e.name).join(', ')
+            : 'Sin adicionales';
+
+          const el = document.createElement('div');
+          el.className = 'flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100';
+          el.innerHTML = `
+            <div class="flex-grow pr-2">
+              <h4 class="text-xs font-bold text-slate-900">${item.name}</h4>
+              <p class="text-[10px] text-slate-400 line-clamp-1">${extrasText}</p>
+              <span class="text-xs font-extrabold text-brand-600">$${itemTotal.toLocaleString('es-AR')}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1 bg-white px-2 py-1 rounded-full border border-slate-200">
+                <button onclick="updateCartItemQty('${key}', -1)" class="text-slate-500 hover:text-slate-900 font-bold text-xs w-4 h-4 flex items-center justify-center">-</button>
+                <span class="text-xs font-extrabold w-4 text-center text-slate-800">${item.qty}</span>
+                <button onclick="updateCartItemQty('${key}', 1)" class="text-slate-500 hover:text-slate-900 font-bold text-xs w-4 h-4 flex items-center justify-center">+</button>
+              </div>
+            </div>
+          `;
+          container.appendChild(el);
+        });
+      }
+
+      // Actualizar Totales en UI
+      document.getElementById('cart-subtotal').textContent = `$${subtotal.toLocaleString('es-AR')}`;
+      document.getElementById('cart-total').textContent = `$${subtotal.toLocaleString('es-AR')}`;
+      document.getElementById('header-cart-badge').textContent = itemCount;
+      document.getElementById('cart-count-subtitle').textContent = `${itemCount} ítems`;
+
+      lucide.createIcons();
+    }
+
+    function updateCartItemQty(key, delta) {
+      if (cart[key]) {
+        cart[key].qty += delta;
+        if (cart[key].qty <= 0) {
+          delete cart[key];
+        }
+        renderCart();
+      }
+    }
+
+    // --- CHECKOUT Y PASARELA DE PAGO (VISTA 3) ---
+    function goToCheckout() {
+      if (Object.keys(cart).length === 0) return;
+
+      // Ocultar pantalla de éxito por si estaba visible
+      document.getElementById('checkout-success').classList.add('hidden');
+      document.getElementById('checkout-main-card').classList.remove('hidden');
+
+      // Renderizar resumen del checkout
+      const summaryList = document.getElementById('checkout-summary-list');
+      summaryList.innerHTML = '';
+      let total = 0;
+      let count = 0;
+
+      Object.values(cart).forEach(item => {
+        const itemTotal = item.unitPrice * item.qty;
+        total += itemTotal;
+        count += item.qty;
+
+        const row = document.createElement('div');
+        row.className = 'flex justify-between';
+        row.innerHTML = `
+          <span>${item.qty}x ${item.name}</span>
+          <span class="font-semibold text-slate-700">$${itemTotal.toLocaleString('es-AR')}</span>
+        `;
+        summaryList.appendChild(row);
+      });
+
+      document.getElementById('checkout-summary-count').textContent = `${count} Productos`;
+      document.getElementById('checkout-summary-total').textContent = `$${total.toLocaleString('es-AR')}`;
+
+      // Verificar si hay tarjeta guardada en localStorage
+      checkSavedCardState();
+
+      switchView('view-checkout');
+    }
+
+    function checkSavedCardState() {
+      const savedCardData = localStorage.getItem('ringcon_go_saved_card');
+      const savedBox = document.getElementById('saved-card-box');
+      const newForm = document.getElementById('new-card-form');
+
+      if (savedCardData) {
+        try {
+          const card = JSON.parse(savedCardData);
+          const last4 = card.number.slice(-4) || '1234';
+          
+          document.getElementById('saved-card-number-display').textContent = `•••• •••• •••• ${last4}`;
+          document.getElementById('saved-card-holder-display').textContent = card.name.toUpperCase();
+          document.getElementById('btn-saved-digits').textContent = `**** ${last4}`;
+
+          savedBox.classList.remove('hidden');
+          newForm.classList.add('hidden');
+        } catch(e) {
+          savedBox.classList.add('hidden');
+          newForm.classList.remove('hidden');
+        }
+      } else {
+        savedBox.classList.add('hidden');
+        newForm.classList.remove('hidden');
+      }
+    }
+
+    function useOtherCard() {
+      document.getElementById('saved-card-box').classList.add('hidden');
+      document.getElementById('new-card-form').classList.remove('hidden');
+    }
+
+    function payWithSavedCard() {
+      completeOrder('Tarjeta Guardada');
+    }
+
+    function handleNewCardPay(event) {
+      event.preventDefault();
+
+      const num = document.getElementById('card-num').value.replace(/\s+/g, '');
+      const name = document.getElementById('card-name').value;
+      const saveCheck = document.getElementById('save-card-check').checked;
+
+      if (saveCheck) {
+        const cardObj = { number: num, name: name };
+        localStorage.setItem('ringcon_go_saved_card', JSON.stringify(cardObj));
+      }
+
+      completeOrder('Nueva Tarjeta de Crédito/Débito');
+    }
+
+    function completeOrder(paymentMethod) {
+      // Guardar el pedido para WhatsApp
+      lastCompletedOrder = {
+        items: Object.values(cart),
+        paymentMethod: paymentMethod,
+        date: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+      };
+
+      // Limpiar Carrito
+      cart = {};
+      renderCart();
+
+      // Mostrar Confirmación Animada
+      document.getElementById('checkout-main-card').classList.add('hidden');
+      document.getElementById('checkout-success').classList.remove('hidden');
+    }
+
+    function sendOrderToWhatsApp() {
+      if (!lastCompletedOrder) return;
+
+      const PHONE_NUMBER = "5491100000000"; // Número configurable
+      let msg = `*¡Nuevo Pedido en Ringcon Go!* 🍔🍕\n\n`;
+      let total = 0;
+
+      lastCompletedOrder.items.forEach(item => {
+        const sub = item.unitPrice * item.qty;
+        total += sub;
+        const extrasStr = item.extras.length > 0 ? ` (${item.extras.map(e => e.name).join(', ')})` : '';
+        msg += `• ${item.qty}x ${item.name}${extrasStr} - *$${sub.toLocaleString('es-AR')}*\n`;
+      });
+
+      msg += `\n*Total a abonar:* $${total.toLocaleString('es-AR')}`;
+      msg += `\n*Método de Pago:* ${lastCompletedOrder.paymentMethod}`;
+      msg += `\n\n¡Aguardo la confirmación de la cocina!`;
+
+      const url = `https://wa.me/${PHONE_NUMBER}?text=${encodeURIComponent(msg)}`;
+      window.open(url, '_blank');
+    }
+
+    function resetApp() {
+      switchView('view-catalog');
+    }
+  </script>
+</body>
+</html>
