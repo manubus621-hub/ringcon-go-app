@@ -1,3 +1,24 @@
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDGdMSsEi8Vx4sR8-SvTpZ3DTfDoryLyzs",
+  authDomain: "ringcon-go-e7f62.firebaseapp.com",
+  projectId: "ringcon-go-e7f62",
+  storageBucket: "ringcon-go-e7f62.firebasestorage.app",
+  messagingSenderId: "1020050374581",
+  appId: "1:1020050374581:web:c44865aa4d2067a47ae3fc",
+  measurementId: "G-GQL5L8Z7TT"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 document.addEventListener('DOMContentLoaded', () => {
   let carrito = {};
   let currentProductBeingEdited = null;
