@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ringcon Go - Panel de Conductores</title>
-    <!-- Fuente Inter para acabado profesional -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -40,7 +39,6 @@
             align-items: center;
         }
 
-        /* --- Pantalla de Registro / Login --- */
         .auth-container {
             display: flex;
             justify-content: center;
@@ -132,7 +130,6 @@
             background-color: var(--primary-hover);
         }
 
-        /* --- Panel Principal --- */
         .dashboard-container {
             width: 100%;
             max-width: 800px;
@@ -154,11 +151,13 @@
         .driver-info h2 {
             font-size: 1.1rem;
             font-weight: 600;
+            color: var(--text-main);
         }
 
         .driver-info p {
             font-size: 0.85rem;
             color: var(--text-muted);
+            margin-top: 2px;
         }
 
         .btn-logout {
@@ -257,28 +256,26 @@
 </head>
 <body>
 
-    <!-- Vista 1: Formulario de Registro / Ingreso -->
     <div id="auth-screen" class="auth-container">
         <div class="auth-card">
             <div class="brand-header">
                 <h1 class="brand-title">Ringcon <span>Go</span></h1>
                 <p class="brand-subtitle">Portal de Conducción y Entregas</p>
             </div>
-            <form id="form-login" class="form-group" onsubmit="event.preventDefault();">
+            <div class="form-group">
                 <div class="input-field">
                     <label for="input-nombre">Nombre Completo</label>
-                    <input type="text" id="input-nombre" placeholder="Ej. Juan Pérez" required>
+                    <input type="text" id="input-nombre" placeholder="Ej. Juan Pérez">
                 </div>
                 <div class="input-field">
-                    <label for="input-direccion">Dirección / Base Operativa</label>
-                    <input type="text" id="input-direccion" placeholder="Ej. Av. Central 1234" required>
+                    <label for="input-direccion">Dirección / Zona</label>
+                    <input type="text" id="input-direccion" placeholder="Ej. Av. Central 1234">
                 </div>
                 <button type="button" id="btn-ingresar" class="btn-primary">Acceder al Panel</button>
-            </form>
+            </div>
         </div>
     </div>
 
-    <!-- Vista 2: Dashboard de Pedidos -->
     <div id="dashboard-screen" class="dashboard-container">
         <header class="dashboard-header">
             <div class="driver-info">
@@ -296,12 +293,10 @@
         </main>
     </div>
 
-    <!-- Firebase SDK (Módulos Oficiales) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Configuración de Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyDKrQcRn5zbW9VD1GBsgdAh6U1bOG...",
             authDomain: "ringcon-go.firebaseapp.com",
@@ -312,11 +307,9 @@
             measurementId: "G-E628RBVYP"
         };
 
-        // Inicialización de servicios
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Referencias del DOM
         const authScreen = document.getElementById('auth-screen');
         const dashboardScreen = document.getElementById('dashboard-screen');
         const btnIngresar = document.getElementById('btn-ingresar');
@@ -329,14 +322,18 @@
 
         let unsubscribeOrders = null;
 
-        // Comprobar si hay sesión guardada en localStorage
         const sessionGuardada = localStorage.getItem('ringcon_driver_session');
         if (sessionGuardada) {
-            const datosConductor = JSON.parse(sessionGuardada);
-            iniciarSesion(datosConductor);
+            try {
+                const datosConductor = JSON.parse(sessionGuardada);
+                if (datosConductor && datosConductor.nombre) {
+                    iniciarSesion(datosConductor);
+                }
+            } catch (e) {
+                localStorage.removeItem('ringcon_driver_session');
+            }
         }
 
-        // Evento de ingreso
         btnIngresar.addEventListener('click', () => {
             const nombre = inputNombre.value.trim();
             const direccion = inputDireccion.value.trim();
@@ -351,26 +348,25 @@
             iniciarSesion(datosConductor);
         });
 
-        // Evento de cierre de sesión
         btnLogout.addEventListener('click', () => {
             localStorage.removeItem('ringcon_driver_session');
             if (unsubscribeOrders) unsubscribeOrders();
             dashboardScreen.style.display = 'none';
             authScreen.style.display = 'flex';
+            inputNombre.value = '';
+            inputDireccion.value = '';
         });
 
-        // Función para cambiar de vista e iniciar escuchas
         function iniciarSesion(datos) {
             authScreen.style.display = 'none';
             dashboardScreen.style.display = 'block';
 
-            driverNameDisplay.textContent = datos.nombre;
-            driverAddressDisplay.textContent = datos.direccion;
+            driverNameDisplay.textContent = "Conductor: " + datos.nombre;
+            driverAddressDisplay.textContent = "Zona: " + datos.direccion;
 
             escucharPedidosFirestore();
         }
 
-        // Escuchar la colección 'ordenes' en vivo
         function escucharPedidosFirestore() {
             const q = query(collection(db, "ordenes"), where("estado", "==", "PENDIENTE"));
 
@@ -407,7 +403,6 @@
             });
         }
 
-        // Función global para actualizar el estado del pedido
         window.aceptarPedido = async function(idPedido) {
             try {
                 const orderRef = doc(db, "ordenes", idPedido);
