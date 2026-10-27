@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ringcon Go - Panel de Conductores</title>
+    <title>Ringcon Go - Pedidos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -98,7 +98,7 @@
             color: var(--text-muted);
         }
 
-        .input-field input {
+        .input-field input, .input-field textarea {
             background-color: var(--bg-input);
             border: 1px solid var(--border-color);
             border-radius: 8px;
@@ -109,7 +109,7 @@
             transition: border-color 0.2s;
         }
 
-        .input-field input:focus {
+        .input-field input:focus, .input-field textarea:focus {
             border-color: var(--primary);
         }
 
@@ -148,13 +148,13 @@
             margin-bottom: 24px;
         }
 
-        .driver-info h2 {
+        .client-info h2 {
             font-size: 1.1rem;
             font-weight: 600;
             color: var(--text-main);
         }
 
-        .driver-info p {
+        .client-info p {
             font-size: 0.85rem;
             color: var(--text-muted);
             margin-top: 2px;
@@ -176,6 +176,14 @@
             background-color: var(--danger);
             color: white;
             border-color: var(--danger);
+        }
+
+        .card-box {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
         }
 
         .section-title {
@@ -221,27 +229,20 @@
             font-weight: 600;
         }
 
+        .badge- camino {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
         .order-details {
             font-size: 0.9rem;
             color: var(--text-muted);
             line-height: 1.5;
-        }
-
-        .btn-action {
-            background-color: var(--accent-green);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 10px 16px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            align-self: flex-start;
-            transition: background-color 0.2s;
-        }
-
-        .btn-action:hover {
-            background-color: var(--accent-green-hover);
         }
 
         .empty-state {
@@ -256,46 +257,63 @@
 </head>
 <body>
 
+    <!-- Pantalla de Ingreso del Cliente -->
     <div id="auth-screen" class="auth-container">
         <div class="auth-card">
             <div class="brand-header">
                 <h1 class="brand-title">Ringcon <span>Go</span></h1>
-                <p class="brand-subtitle">Portal de Conducción y Entregas</p>
+                <p class="brand-subtitle">Haz tu pedido al instante</p>
             </div>
             <div class="form-group">
                 <div class="input-field">
-                    <label for="input-nombre">Nombre Completo</label>
-                    <input type="text" id="input-nombre" placeholder="Ej. Juan Pérez">
+                    <label for="input-nombre">Tu Nombre</label>
+                    <input type="text" id="input-nombre" placeholder="Ej. María Gómez">
                 </div>
                 <div class="input-field">
-                    <label for="input-direccion">Dirección / Zona</label>
-                    <input type="text" id="input-direccion" placeholder="Ej. Av. Central 1234">
+                    <label for="input-direccion">Dirección de Entrega</label>
+                    <input type="text" id="input-direccion" placeholder="Ej. Calle Falsa 123">
                 </div>
-                <button type="button" id="btn-ingresar" class="btn-primary">Acceder al Panel</button>
+                <button type="button" id="btn-ingresar" class="btn-primary">Continuar</button>
             </div>
         </div>
     </div>
 
+    <!-- Panel de Creación y Seguimiento de Pedidos -->
     <div id="dashboard-screen" class="dashboard-container">
         <header class="dashboard-header">
-            <div class="driver-info">
-                <h2 id="driver-name-display">Cargando...</h2>
-                <p id="driver-address-display">---</p>
+            <div class="client-info">
+                <h2 id="client-name-display">Cliente</h2>
+                <p id="client-address-display">Dirección</p>
             </div>
-            <button id="btn-logout" class="btn-logout">Cerrar Sesión</button>
+            <button id="btn-logout" class="btn-logout">Cambiar Datos</button>
         </header>
 
+        <!-- Formulario para pedir -->
+        <div class="card-box">
+            <h2 class="section-title">Nuevo Pedido</h2>
+            <div class="form-group">
+                <div class="input-field">
+                    <label for="input-descripcion">¿Qué quieres pedir o enviar?</label>
+                    <textarea id="input-descripcion" rows="3" placeholder="Ej. 2 Hamburguesas completas y una gaseosa..."></textarea>
+                </div>
+                <button type="button" id="btn-crear-pedido" class="btn-primary" style="background-color: var(--accent-green);">Realizar Pedido</button>
+            </div>
+        </div>
+
         <main>
-            <h2 class="section-title">Pedidos Disponibles</h2>
+            <h2 class="section-title">Mis Pedidos Activos</h2>
             <div id="lista-pedidos" class="orders-grid">
-                <div class="empty-state">Buscando nuevos pedidos en tiempo real...</div>
+                <div class="empty-state">No tienes pedidos activos en este momento.</div>
             </div>
         </main>
     </div>
 
+    <!-- Scripts de Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, add슐 as addDoc, query, where, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        // Nota: importamos addDoc limpio abajo
+        import { addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDKrQcRn5zbW9VD1GBsgdAh6U1bOG...",
@@ -314,23 +332,27 @@
         const dashboardScreen = document.getElementById('dashboard-screen');
         const btnIngresar = document.getElementById('btn-ingresar');
         const btnLogout = document.getElementById('btn-logout');
+        const btnCrearPedido = document.getElementById('btn-crear-pedido');
         const inputNombre = document.getElementById('input-nombre');
         const inputDireccion = document.getElementById('input-direccion');
-        const driverNameDisplay = document.getElementById('driver-name-display');
-        const driverAddressDisplay = document.getElementById('driver-address-display');
+        const inputDescripcion = document.getElementById('input-descripcion');
+        const clientNameDisplay = document.getElementById('client-name-display');
+        const clientAddressDisplay = document.getElementById('client-address-display');
         const listaPedidos = document.getElementById('lista-pedidos');
 
         let unsubscribeOrders = null;
+        let clienteActual = null;
 
-        const sessionGuardada = localStorage.getItem('ringcon_driver_session');
+        // Comprobar sesión guardada
+        const sessionGuardada = localStorage.getItem('ringcon_client_session');
         if (sessionGuardada) {
             try {
-                const datosConductor = JSON.parse(sessionGuardada);
-                if (datosConductor && datosConductor.nombre) {
-                    iniciarSesion(datosConductor);
+                clienteActual = JSON.parse(sessionGuardada);
+                if (clienteActual && clienteActual.nombre) {
+                    iniciarPanel(clienteActual);
                 }
             } catch (e) {
-                localStorage.removeItem('ringcon_driver_session');
+                localStorage.removeItem('ringcon_client_session');
             }
         }
 
@@ -339,17 +361,17 @@
             const direccion = inputDireccion.value.trim();
 
             if (!nombre || !direccion) {
-                alert("Por favor, completa ambos campos para continuar.");
+                alert("Por favor completa tu nombre y dirección.");
                 return;
             }
 
-            const datosConductor = { nombre, direccion };
-            localStorage.setItem('ringcon_driver_session', JSON.stringify(datosConductor));
-            iniciarSesion(datosConductor);
+            clienteActual = { nombre, direccion };
+            localStorage.setItem('ringcon_client_session', JSON.stringify(clienteActual));
+            iniciarPanel(clienteActual);
         });
 
         btnLogout.addEventListener('click', () => {
-            localStorage.removeItem('ringcon_driver_session');
+            localStorage.removeItem('ringcon_client_session');
             if (unsubscribeOrders) unsubscribeOrders();
             dashboardScreen.style.display = 'none';
             authScreen.style.display = 'flex';
@@ -357,64 +379,80 @@
             inputDireccion.value = '';
         });
 
-        function iniciarSesion(datos) {
+        function iniciarPanel(datos) {
             authScreen.style.display = 'none';
             dashboardScreen.style.display = 'block';
 
-            driverNameDisplay.textContent = "Conductor: " + datos.nombre;
-            driverAddressDisplay.textContent = "Zona: " + datos.direccion;
+            clientNameDisplay.textContent = datos.nombre;
+            clientAddressDisplay.textContent = datos.direccion;
 
-            escucharPedidosFirestore();
+            escucharMisPedidos(datos.nombre);
         }
 
-        function escucharPedidosFirestore() {
-            const q = query(collection(db, "ordenes"), where("estado", "==", "PENDIENTE"));
+        // Crear pedido en Firestore
+        btnCrearPedido.addEventListener('click', async () => {
+            const descripcion = inputDescripcion.value.trim();
+            if (!descripcion) {
+                alert("Por favor escribe qué deseas pedir.");
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, "ordenes"), {
+                    cliente: clienteActual.nombre,
+                    direccion: clienteActual.direccion,
+                    descripcion: descripcion,
+                    estado: "PENDIENTE",
+                    createdAt: serverTimestamp()
+                });
+
+                inputDescripcion.value = "";
+                alert("¡Pedido realizado con éxito!");
+            } catch (e) {
+                console.error("Error al crear pedido:", e);
+                alert("No se pudo enviar el pedido. Revisa la consola.");
+            }
+        });
+
+        // Escuchar los pedidos de este cliente en vivo
+        function escucharMisPedidos(nombreCliente) {
+            const q = query(collection(db, "ordenes"), where("cliente", "==", nombreCliente));
 
             unsubscribeOrders = onSnapshot(q, (querySnapshot) => {
                 listaPedidos.innerHTML = "";
 
                 if (querySnapshot.empty) {
-                    listaPedidos.innerHTML = '<div class="empty-state">No hay pedidos pendientes disponibles en este momento.</div>';
+                    listaPedidos.innerHTML = '<div class="empty-state">No tienes pedidos activos en este momento.</div>';
                     return;
                 }
 
                 querySnapshot.forEach((docSnap) => {
                     const pedido = docSnap.data();
                     const idPedido = docSnap.id;
+                    const estado = pedido.estado || "PENDIENTE";
+
+                    const badgeClass = estado === "PENDIENTE" ? "badge-pending" : "badge-camino";
+                    const badgeText = estado === "PENDIENTE" ? "PENDIENTE" : "EN CAMINO";
 
                     const card = document.createElement("div");
                     card.className = "order-card";
                     card.innerHTML = `
                         <div class="order-header">
                             <span class="order-id">Orden #${idPedido.substring(0, 8)}</span>
-                            <span class="badge-pending">PENDIENTE</span>
+                            <span class="${badgeClass}">${badgeText}</span>
                         </div>
                         <div class="order-details">
-                            <p><strong>Detalle:</strong> ${pedido.descripcion || "Sin descripción"}</p>
-                            <p><strong>Destino:</strong> ${pedido.direccion || "No especificada"}</p>
+                            <p><strong>Pedido:</strong> ${pedido.descripcion}</p>
+                            <p><strong>Destino:</strong> ${pedido.direccion}</p>
+                            ${pedido.conductor ? `<p style="margin-top: 6px; color: var(--accent-green);"><strong>Conductor:</strong> ${pedido.conductor}</p>` : ''}
                         </div>
-                        <button class="btn-action" onclick="aceptarPedido('${idPedido}')">Tomar Pedido</button>
                     `;
                     listaPedidos.appendChild(card);
                 });
             }, (error) => {
-                console.error("Error al escuchar la base de datos:", error);
-                listaPedidos.innerHTML = '<div class="empty-state">Error al conectar con la base de datos.</div>';
+                console.error("Error al escuchar pedidos:", error);
             });
         }
-
-        window.aceptarPedido = async function(idPedido) {
-            try {
-                const orderRef = doc(db, "ordenes", idPedido);
-                await updateDoc(orderRef, { 
-                    estado: "EN_CAMINO",
-                    conductor: driverNameDisplay.textContent
-                });
-            } catch (e) {
-                console.error("Error al actualizar la orden:", e);
-                alert("No se pudo asignar el pedido. Inténtalo de nuevo.");
-            }
-        };
     </script>
 </body>
 </html>
