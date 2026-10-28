@@ -1,3 +1,40 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ff3b1f">
+<title>Ringcon Go Delivery · Pide ya</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fff;--ink:#141416;--mute:#75757d;--line:#ececf0;--soft:#f5f5f7;
+  --brand:#ff3b1f;--brand-d:#e32d12;--ok:#12a863;--warn:#f08c00;--bad:#e5384b;
+  --r:20px;--shadow:0 12px 32px -14px rgba(20,20,22,.3);
+  --display:'Bricolage Grotesque',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:16px/1.45 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+body.lock{overflow:hidden}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+h1,h2,h3,.logo{font-family:var(--display);letter-spacing:-.025em}
+:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.logo{font-weight:800;font-size:24px;line-height:1}
+.logo b{background:var(--brand);color:#fff;border-radius:99px;padding:1px 8px 3px;margin-left:4px;display:inline-block;transform:rotate(-5deg)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:14px;font-weight:700;transition:transform .12s,background .2s}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--brand);color:#fff;box-shadow:0 12px 24px -12px var(--brand)}
+.btn.primary:hover{background:var(--brand-d)}
+.btn.ghost{background:var(--soft)}
+.btn.big{width:100%;padding:16px;font-size:17px;border-radius:16px}
+.btn[disabled]{opacity:.5;pointer-events:none}
+.icon-btn{width:40px;height:40px;border-radius:50%;background:var(--soft);display:grid;place-items:center;font-size:18px;flex:none}
+.link{color:var(--brand);font-weight:700}
+.hide{display:none!important}
+
 /* login */
 .login{min-height:100dvh;display:grid;place-items:center;padding:24px}
 .login-box{max-width:360px;width:100%;text-align:center}
@@ -28,7 +65,7 @@
 .hello b{color:var(--ink)}
 .hero h1{font-size:clamp(34px,7vw,64px);font-weight:800;line-height:1;margin:8px 0 18px;max-width:14ch}
 .search{position:relative}
-.search::before{content:'🔎';position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:16px}
+.search::before{content:'🔍';position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:16px}
 .search input{width:100%;padding:16px 18px 16px 46px;border-radius:16px;border:1.5px solid var(--line);background:var(--soft);outline:0;font-size:16px}
 .search input:focus{border-color:var(--ink);background:#fff}
 .livep{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:14px;font-weight:600;color:var(--mute)}
@@ -48,7 +85,7 @@
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
 .card{text-align:left;border-radius:var(--r);overflow:hidden;background:#fff;border:1px solid var(--line);transition:transform .2s,box-shadow .2s;display:block;width:100%}
 .card:hover{transform:translateY(-4px);box-shadow:var(--shadow)}
-.tile{height:128px;display:grid;place-items:center;font-size:62px;background:var(--tile)}
+.tile{height:128px;display:grid;place-items:center;font-size:54px;background:var(--tile)}
 .card-b{padding:14px 16px 16px}
 .card-b h3{font-size:19px;font-weight:800}
 .meta{display:flex;flex-wrap:wrap;gap:2px 12px;color:var(--mute);font-size:14px;margin-top:4px}
@@ -56,7 +93,7 @@
 .foot{text-align:center;color:var(--mute);font-size:12px;padding:34px 0 0}
 
 /* business */
-.biz-hero{height:190px;border-radius:var(--r);background:var(--tile);display:grid;place-items:center;font-size:96px;margin-bottom:16px}
+.biz-hero{height:150px;border-radius:var(--r);background:var(--tile);display:grid;place-items:center;font-size:72px;margin-bottom:16px}
 .biz-name{font-size:36px;font-weight:800;line-height:1.05}
 .menu{margin-top:14px}
 .item{display:flex;gap:14px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
@@ -70,9 +107,9 @@
 .qty button{width:32px;height:32px;border-radius:50%;background:#fff;font-weight:800;font-size:18px;box-shadow:0 1px 3px rgba(0,0,0,.14)}
 .qty span{min-width:18px;text-align:center;font-weight:800}
 
-/* dock /
+/* dock */
 #dock{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;gap:8px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));max-width:680px;margin:0 auto;pointer-events:none}
-#dock>{pointer-events:auto}
+#dock>*{pointer-events:auto}
 .bar{display:flex;align-items:center;gap:12px;padding:15px 18px;border-radius:18px;font-weight:800;box-shadow:var(--shadow);width:100%;text-align:left}
 .bar.cart{background:var(--brand);color:#fff;justify-content:space-between}
 .bar.cart .n{background:rgba(255,255,255,.25);border-radius:10px;padding:2px 10px}
@@ -101,7 +138,7 @@
 .pill{padding:10px 16px;border-radius:12px;background:var(--soft);font-weight:700;border:1.5px solid transparent}
 .pill.on{border-color:var(--ink);background:#fff}
 
-/* METODOS DE PAGO CORREGIDOS */
+/* METODOS DE PAGO */
 .methods{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 .method{padding:14px;border-radius:16px;border:1.5px solid var(--line);text-align:left;font-weight:700;background:#fff}
 .method.on{border-color:var(--brand);background:#fff5f3}
@@ -117,21 +154,8 @@
 .tot{display:flex;justify-content:space-between;padding:4px 0;color:var(--mute)}
 .tot.big{color:var(--ink);font-weight:800;font-size:20px;padding-top:12px;margin:8px 0 16px;border-top:1px dashed var(--line)}
 .secure{text-align:center;color:var(--mute);font-size:12px;margin-top:12px}
-.sug{display:grid;gap:4px;margin:-6px 0 12px}
-.sug button{text-align:left;padding:10px 12px;border-radius:12px;background:var(--soft);font-size:14px}
-.saved{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px}
-.saved .pill{font-size:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* pago status */
-#pay{position:fixed;inset:0;z-index:80;background:rgba(255,255,255,.97);display:none;place-items:center;text-align:center;padding:24px}
-#pay.on{display:grid}
-.spin{width:64px;height:64px;border-radius:50%;border:6px solid var(--line);border-top-color:var(--brand);animation:sp .8s linear infinite;margin:0 auto 18px}
-@keyframes sp{to{transform:rotate(360deg)}}
-.okk{width:72px;height:72px;border-radius:50%;background:var(--ok);color:#fff;font-size:38px;display:grid;place-items:center;margin:0 auto 18px;animation:pop .4s}
-@keyframes pop{from{transform:scale(.3)}}
-#pay h2{font-size:26px}
-
-/* tracking /
+/* tracking */
 .t-head{padding:20px;border-radius:var(--r);background:var(--ink);color:#fff;margin-bottom:18px}
 .t-head small{opacity:.7;display:block}
 .t-head h1{font-size:30px;line-height:1.05;margin:8px 0 6px;font-weight:800}
@@ -143,7 +167,6 @@
 .step.done{color:var(--ink)}.step.done i{background:var(--ok)}.step.done::before{background:var(--ok)}
 .step.now{color:var(--ink);font-weight:700}.step.now i{background:var(--brand);box-shadow:0 0 0 6px rgba(255,59,31,.18)}
 .box{padding:16px;border-radius:var(--r);background:var(--soft);margin-bottom:14px}
-.box.livep{margin-top:0}
 .ord{display:block;width:100%;text-align:left}
 .badge{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:800}
 .badge.ok{background:#dff6ea;color:#0b7a46}.badge.wait{background:#fff0d2;color:#955700}.badge.bad{background:#fde3e6;color:#b4232f}
@@ -154,11 +177,12 @@
 #toast{position:fixed;left:50%;top:14px;transform:translate(-50%,-140%);z-index:90;background:var(--ink);color:#fff;padding:12px 18px;border-radius:14px;font-weight:600;font-size:14px;transition:transform .3s;max-width:92vw;box-shadow:var(--shadow)}
 #toast.on{transform:translate(-50%,0)}
 #toast.err{background:var(--bad)}
-@media(prefers-reduced-motion:reduce){{animation:none!important;transition:none!important}}
-#splash{position:fixed;inset:0;z-index:200;display:grid;place-content:center;justify-items:center;gap:18px;animation:spOut .45s ease 1.3s forwards}
+#splash{position:fixed;inset:0;z-index:200;display:grid;place-content:center;justify-items:center;gap:18px;animation:spOut .45s ease 1.3s forwards;background:#fff;color:var(--ink)}
 #splash svg{width:96px;height:96px;animation:spIn .6s cubic-bezier(.2,.9,.3,1.2) both}
 #splash p{font:800 15px var(--display);letter-spacing:.18em;text-transform:uppercase;animation:spIn .6s .15s both}
 @keyframes spIn{from{transform:scale(.7);opacity:0}}
 @keyframes spOut{to{opacity:0;visibility:hidden}}
-@media(prefers-reduced-motion:reduce){#splash{display:none!important}}
-#splash{background:#fff;color:var(--ink)}
+</style>
+</head>
+<body>
+<div id="splash"><svg viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#ff3b1f"/><g transform="translate(0 -12)" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round"><path d="M200 220v-30a56
