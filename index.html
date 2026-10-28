@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#ff3b1f">
 <title>Ringcon Go Delivery · Pide ya</title>
-<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjExMiIgZmlsbD0iI2ZmM2IxZiIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAgLTEyKSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMDAgMjIwdi0zMGE1NiA1NiAwIDAgMSAxMTIgMHYzMCIgc3Ryb2tlLXdpZHRoPSIyMiIvPjxwYXRoIGQ9Ik0xNjAgMjE0SDM1MkwzODQgMzk2SDEyOFoiIGZpbGw9IiNmZmYiIHN0cm9rZS13aWR0aD0iMzYiLz48L2c+PC9zdmc+">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjExMiIgZmlsbD0iI2ZmM2IxZiIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAgLTEyKSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMDAgMjIwdi0zMGE1NiA1NiAwIDAgMSAxMTIgMhydzMCIgc3Ryb2tlLXdpZHRoPSIyMiIvPjxwYXRoIGQ9Ik0xNjAgMjE0SDM1MkwzODQgMzk2SDEyOFoiIGZpbGw9IiNmZmYiIHN0cm9rZS13aWR0aD0iMzYiLz48L2c+PC9zdmc+">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap" rel="stylesheet">
@@ -236,10 +236,9 @@ const CONFIG = {
   FIREBASE_URL: "https://ringcon-go-e7f62-default-rtdb.firebaseio.com",
   ROOM: "ringcon-go",
   CURRENCY: "$",
-  /* Personal Pay: tu alias o CVU donde el cliente te transfiere desde la app. TITULAR es opcional.
-     Si dejas ALIAS vacío, el cliente verá "los datos te los pasa el conductor". */
+  /* Personal Pay: cuenta centralizada en Buenos Aires para recibir los pagos digitales */
   PERSONAL_PAY: { ALIAS: "Braiantorres.ito", TITULAR: "" },
-  RATE: 1500,              // pesos argentinos por unidad del catálogo original (ajústalo a gusto)
+  RATE: 1500,              // pesos argentinos por unidad del catálogo original
   DRIVER_TTL: 120000,      // un conductor cuenta como "en línea" si latió hace menos de 2 min
 };
 
@@ -284,7 +283,7 @@ const Sync = (() => {
         es.onerror = () => setStatus('offline');
       } catch {}
     });
-    setInterval(() => cols.forEach(pull), 8000);   // respaldo por si el stream se corta
+    setInterval(() => cols.forEach(pull), 8000);
   }
   async function patch(c, id, data) {
     if (!remote) {
@@ -314,7 +313,7 @@ const money = n => CONFIG.CURRENCY + String(Math.round(Number(n || 0))).replace(
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const arr = x => Array.isArray(x) ? x : Object.values(x || {});
 
-/* Reparto de cada pedido: local = productos · conductor = envío + propina · Ringcon Go = servicio (comisión). */
+/* Reparto financiero del pedido: local = productos, conductor = envío + propina, Ringcon Go = comisión de servicio. */
 const splitOf = t => ({ restaurant: Number(t.subtotal) || 0, driver: (Number(t.fee) || 0) + (Number(t.tip) || 0), commission: Number(t.service) || 0 });
 const rid = () => Math.random().toString(36).slice(2, 8);
 const hash = s => { let h = 5381; for (const c of s) h = ((h << 5) + h + c.charCodeAt(0)) >>> 0; return h.toString(36); };
@@ -365,7 +364,6 @@ const BUSINESSES = [
     { id: 'po2', name: 'Wrap crujiente', desc: 'Lechuga, tomate, salsa ranch', price: 7.2, emoji: '🌯' },
     { id: 'po3', name: 'Ensalada coleslaw', desc: 'Porción individual', price: 2.9, emoji: '🥗' } ] }
 ];
-/* Precios en pesos argentinos: se convierten con CONFIG.RATE y se redondean a $50 */
 const ars = n => Math.round(n * CONFIG.RATE / 50) * 50;
 BUSINESSES.forEach(b => { b.fee = ars(b.fee); b.menu.forEach(m => { m.price = ars(m.price); }); });
 const biz = id => BUSINESSES.find(b => b.id === id);
@@ -416,7 +414,7 @@ const onlineDrivers = () => Object.values(state.drivers).filter(d => d.online &&
 function statusInfo(o) {
   const d = o.driver ? o.driver.name : 'Tu conductor';
   switch (o.status) {
-    case 'nuevo': return { t: 'Buscando conductor…', s: 'Tu pedido ya está en la app de conductores', i: 0 };
+    case 'nuevo': return { t: 'Buscando conductor…', s: 'Tu pedido ya está en camino a la app de conductores', i: 0 };
     case 'aceptado': return { t: `${d} va por tu pedido`, s: 'Va camino al local', i: 1 };
     case 'en_local': return { t: `${d} está en el local`, s: 'Recogiendo tu pedido', i: 1 };
     case 'recogido': return { t: '¡Tu pedido va en camino!', s: `${d} ya lo tiene`, i: 2 };
@@ -424,11 +422,13 @@ function statusInfo(o) {
     default: return { t: 'Pedido cancelado', s: '', i: -1 };
   }
 }
+
+/* Insignia de pago actualizada con los modelos correctos */
 function payBadge(o) {
   const p = o.payment || {};
-  if (p.status === 'pagado') return '<span class="badge ok">Pagado</span>';
+  if (p.status === 'pagado') return '<span class="badge ok">Pagado digitalmente</span>';
   if (p.status === 'por_confirmar') return '<span class="badge wait">Pago por Personal Pay en verificación</span>';
-  return `<span class="badge wait">${p.method === 'transferencia' ? 'Pagas por transferencia al recibir' : p.method === 'personalpay' ? 'Pagas con Personal Pay al recibir' : 'Pagas en efectivo al recibir'}</span>`;
+  return `<span class="badge wait">${p.method === 'transferencia' ? 'Pago por transferencia' : p.method === 'personalpay' ? 'Pago digital Personal Pay' : 'Pago en efectivo al recibir'}</span>`;
 }
 
 /* ═══════════════ VISTAS ═══════════════ */
@@ -631,7 +631,7 @@ function openCheckout() {
     <div class="methods" id="co-methods">
       <button class="method" data-act="method" data-m="efectivo">💵 Efectivo<small>Pagas al recibir</small></button>
       <button class="method" data-act="method" data-m="transferencia">🏦 Transferencia<small>La haces al recibir</small></button>
-      <button class="method wide" data-act="method" data-m="personalpay">📲 Personal Pay<small>Pagas con la app al recibir</small></button>
+      <button class="method wide" data-act="method" data-m="personalpay">📲 Personal Pay<small>Pago digital centralizado</small></button>
     </div>
     <p class="hint" id="co-hint"></p>
     <div id="pp-form" class="box hide"></div>
@@ -657,13 +657,24 @@ function drawCo() {
   $$('#co-tips .pill').forEach(p => p.classList.toggle('on', +p.dataset.v === state.tip));
   $$('#co-methods .method').forEach(m => m.classList.toggle('on', m.dataset.m === state.method));
   $('#cash-form').classList.toggle('hide', state.method !== 'efectivo');
+  
   const pp = CONFIG.PERSONAL_PAY || {}, isPP = state.method === 'personalpay';
   $('#pp-form').classList.toggle('hide', !isPP);
-  if (isPP) $('#pp-form').innerHTML = `<small class="meta">Al recibir tu pedido, paga ${money(t.total)} por Personal Pay a:</small>` +
-    (pp.ALIAS ? `<div class="pp-al"><b>${esc(pp.ALIAS)}</b><button class="btn ghost" data-act="copy-alias">Copiar</button></div>${pp.TITULAR ? `<small class="meta">${esc(pp.TITULAR)}</small>` : ''}`
-              : '<div class="pp-al"><b>Los datos te los pasa el conductor</b></div>');
-  $('#co-hint').textContent = isPP ? 'El pago va directo a la cuenta de Ringcon Go. Muéstrale el comprobante al conductor al recibir.' : state.method === 'efectivo' ? `Abonas el monto exacto del pedido (${money(t.total)}) al conductor al recibir.` : 'El pago se hace en mano, cara a cara con el repartidor.';
-  $('#co-secure').textContent = isPP ? 'Tu pago se acredita en la cuenta central de Ringcon Go.' : 'Coordinas el pago directo con el repartidor.';
+  if (isPP) {
+    $('#pp-form').innerHTML = `<small class="meta">Transfiere el total de ${money(t.total)} a la cuenta central de Personal Pay:</small>` +
+      (pp.ALIAS ? `<div class="pp-al"><b>${esc(pp.ALIAS)}</b><button class="btn ghost" data-act="copy-alias">Copiar</button></div>${pp.TITULAR ? `<small class="meta">${esc(pp.TITULAR)}</small>` : ''}`
+                : '<div class="pp-al"><b>Alias no configurado</b></div>');
+  }
+  
+  $('#co-hint').textContent = isPP 
+    ? 'El pago se realiza de forma digital a nuestra cuenta central. Muestra el comprobante al conductor al recibir.' 
+    : state.method === 'efectivo' 
+    ? `Abonas el monto exacto (${money(t.total)}) en efectivo al repartidor al recibir.` 
+    : 'Realizas la transferencia correspondiente al recibir tu pedido.';
+  
+  $('#co-secure').textContent = isPP 
+    ? 'Pago digital procesado de forma centralizada hacia Ringcon Go.' 
+    : 'Coordinación directa con el repartidor en destino.';
 }
 
 function showPay(title, sub, ok) {
@@ -678,7 +689,7 @@ async function placeOrder() {
   const lines = cartLines(); if (!lines.length) return;
   if (!state.address) { state.returnToCheckout = true; openAddress(); return; }
   const b = biz(state.cart.bizId), t = totals();
-  const payment = { method: state.method, status: 'pendiente', holder: state.method === 'personalpay' ? 'central' : 'conductor' };
+  const payment = { method: state.method, status: state.method === 'personalpay' ? 'por_confirmar' : 'pendiente', holder: state.method === 'personalpay' ? 'central' : 'conductor' };
   if (state.method === 'efectivo') {
     const raw = ($('#co-cash').value || '').split(',')[0].replace(/\D/g, ''), cash = raw ? Number(raw) : 0;
     if (raw && (!isFinite(cash) || cash < t.total)) { toast(`El monto debe cubrir el total (${money(t.total)})`, 'err'); return; }
