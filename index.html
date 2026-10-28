@@ -313,6 +313,9 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const money = n => CONFIG.CURRENCY + String(Math.round(Number(n || 0))).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const arr = x => Array.isArray(x) ? x : Object.values(x || {});
+
+/* Reparto de cada pedido: local = productos · conductor = envío + propina · Ringcon Go = servicio (comisión). */
+const splitOf = t => ({ restaurant: Number(t.subtotal) || 0, driver: (Number(t.fee) || 0) + (Number(t.tip) || 0), commission: Number(t.service) || 0 });
 const rid = () => Math.random().toString(36).slice(2, 8);
 const hash = s => { let h = 5381; for (const c of s) h = ((h << 5) + h + c.charCodeAt(0)) >>> 0; return h.toString(36); };
 const store = {
@@ -424,6 +427,7 @@ function statusInfo(o) {
 function payBadge(o) {
   const p = o.payment || {};
   if (p.status === 'pagado') return '<span class="badge ok">Pagado</span>';
+  if (p.status === 'por_confirmar') return '<span class="badge wait">Pago por Personal Pay en verificación</span>';
   return `<span class="badge wait">${p.method === 'transferencia' ? 'Pagas por transferencia al recibir' : p.method === 'personalpay' ? 'Pagas con Personal Pay al recibir' : 'Pagas en efectivo al recibir'}</span>`;
 }
 
@@ -658,8 +662,8 @@ function drawCo() {
   if (isPP) $('#pp-form').innerHTML = `<small class="meta">Al recibir tu pedido, paga ${money(t.total)} por Personal Pay a:</small>` +
     (pp.ALIAS ? `<div class="pp-al"><b>${esc(pp.ALIAS)}</b><button class="btn ghost" data-act="copy-alias">Copiar</button></div>${pp.TITULAR ? `<small class="meta">${esc(pp.TITULAR)}</small>` : ''}`
               : '<div class="pp-al"><b>Los datos te los pasa el conductor</b></div>');
-  $('#co-hint').textContent = isPP ? 'El pedido queda pendiente de pago hasta que el conductor confirme que le llegó.' : 'El pago se hace en mano, cara a cara con el repartidor.';
-  $('#co-secure').textContent = 'Coordinas el pago directo con el repartidor.';
+  $('#co-hint').textContent = isPP ? 'El pago va directo a la cuenta de Ringcon Go. Muéstrale el comprobante al conductor al recibir.' : state.method === 'efectivo' ? `Abonas el monto exacto del pedido (${money(t.total)}) al conductor al recibir.` : 'El pago se hace en mano, cara a cara con el repartidor.';
+  $('#co-secure').textContent = isPP ? 'Tu pago se acredita en la cuenta central de Ringcon Go.' : 'Coordinas el pago directo con el repartidor.';
 }
 
 function showPay(title, sub, ok) {
@@ -674,9 +678,9 @@ async function placeOrder() {
   const lines = cartLines(); if (!lines.length) return;
   if (!state.address) { state.returnToCheckout = true; openAddress(); return; }
   const b = biz(state.cart.bizId), t = totals();
-  const payment = { method: state.method, status: 'pendiente' };
+  const payment = { method: state.method, status: 'pendiente', holder: state.method === 'personalpay' ? 'central' : 'conductor' };
   if (state.method === 'efectivo') {
-    const raw = ($('#co-cash').value || '').replace(',', '.'), cash = raw ? Number(raw) : 0;
+    const raw = ($('#co-cash').value || '').split(',')[0].replace(/\D/g, ''), cash = raw ? Number(raw) : 0;
     if (raw && (!isFinite(cash) || cash < t.total)) { toast(`El monto debe cubrir el total (${money(t.total)})`, 'err'); return; }
     if (cash) payment.cashWith = cash;
   }
@@ -688,7 +692,7 @@ async function placeOrder() {
     business: { id: b.id, name: b.name, emoji: b.emoji },
     items: lines.map(l => ({ name: l.name, qty: l.qty, price: l.price })),
     address: { text: state.address.text, ref: state.address.ref || '', ...(state.address.lat ? { lat: state.address.lat, lon: state.address.lon } : {}) },
-    notes: state.notes.trim(), totals: t, driverPay: +(t.fee + t.tip).toFixed(2), payment
+    notes: state.notes.trim(), totals: t, driverPay: +(t.fee + t.tip).toFixed(2), split: splitOf(t), payment
   };
   try { await Sync.patch('orders', id, order); }
   catch { placing = false; hidePay(); toast('No pudimos enviar tu pedido. Revisa tu conexión.', 'err'); return; }
