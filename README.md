@@ -73,3 +73,13 @@ Estados de un pedido: `pago_pendiente` → `nuevo` → `aceptado` → `en_local`
 
 > El plan Hobby de Vercel es para uso no comercial. Sirve para lanzar y probar; cuando la app
 > empiece a facturar, conviene pasar a Vercel Pro.
+
+## App para Android (APK)
+
+1. Entrá a https://www.pwabuilder.com, pegá `https://ringcon-go.vercel.app` y tocá **Start**.
+2. **Package for stores** → **Android** → **Generate Package**. Para instalarla directo en teléfonos usá el
+   **APK de prueba**; para publicarla en Google Play, el **AAB**.
+3. Guardá bien el archivo de firma (`signing.keystore`) y sus claves: los vas a necesitar para cada actualización.
+
+La app usa el manifest, el service worker y los íconos de `icons/`, así que las actualizaciones de la web
+llegan solas a la app instalada.

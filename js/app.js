@@ -136,6 +136,7 @@ function renderLogin() {
         <label class="field">Teléfono <i>(para que el conductor te encuentre)</i><input id="l-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej: 299 123 4567" maxlength="20"></label>
         <button class="btn primary big" id="l-btn">Entrar y pedir</button>
       </form>
+      <p class="hint" style="text-align:center">Al entrar aceptás los <a class="link" href="privacidad.html">Términos y la Política de privacidad</a>.</p>
     </div>
   </main>`;
 }
@@ -172,7 +173,7 @@ function drawBiz() {
     <button class="card" data-act="open-biz" data-id="${esc(b.id)}">
       <div class="tile">${esc(b.emoji)}</div>
       <div class="card-b"><h3>${esc(b.name)}</h3>
-        <div class="meta"><span>★ ${esc(b.rating)}</span><span>${esc(b.eta)}</span><span>Envío ${money(b.fee)}</span></div></div>
+        <div class="meta">${b.rating ? `<span>★ ${esc(b.rating)}</span>` : '<span>Nuevo</span>'}<span>${esc(b.eta)}</span><span>Envío ${money(b.fee)}</span></div></div>
     </button>`).join('') : '<p class="empty">No encontramos nada. Probá con otra búsqueda.</p>';
 }
 
@@ -188,7 +189,7 @@ function renderBiz() {
   <main class="wrap narrow">
     <div class="biz-hero">${esc(b.emoji)}</div>
     <h1 class="biz-name">${esc(b.name)}</h1>
-    <div class="meta"><span>★ ${esc(b.rating)}</span><span>${esc(b.cat)}</span><span>${esc(b.eta)}</span><span>Envío ${money(b.fee)}</span></div>
+    <div class="meta">${b.rating ? `<span>★ ${esc(b.rating)}</span>` : '<span>Nuevo</span>'}<span>${esc(b.cat)}</span><span>${esc(b.eta)}</span><span>Envío ${money(b.fee)}</span></div>
     <div class="menu">${b.menu.map(it => `
       <div class="item"><div class="em">${esc(it.emoji)}</div>
         <div class="tx"><b>${esc(it.name)}</b><small>${esc(it.desc)}</small><span class="pr">${money(it.price)}</span></div>

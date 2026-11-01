@@ -9,7 +9,21 @@
 
     "catalog": {
       ".read": true,
-      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$biz": {
+        ".validate": "$biz.matches(/^[a-z0-9-]{1,40}$/) && newData.hasChildren(['name', 'fee'])",
+        "name": { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 60" },
+        "fee": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+        "open": { ".validate": "newData.isBoolean()" },
+        "menu": {
+          "$item": {
+            ".validate": "$item.matches(/^[a-z0-9-]{1,40}$/) && newData.hasChildren(['name', 'price'])",
+            "name": { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 60" },
+            "price": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 10000000" },
+            "available": { ".validate": "newData.isBoolean()" }
+          }
+        }
+      }
     },
 
     "customers": {
