@@ -13,4 +13,4 @@ export const FIREBASE = {
 export const REGION = 'us-central1';
 
 // Mercado Pago → Tus integraciones → Credenciales → Public Key (empieza con APP_USR- o TEST-).
-export const MP_PUBLIC_KEY = 'COMPLETAR';
+export const MP_PUBLIC_KEY = 'APP_USR-bf311144-d518-472b-b4f4-9542b16b9392';
