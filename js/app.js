@@ -2,8 +2,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInAnonymously, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { getDatabase, ref, onValue, set } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
-import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
-import { FIREBASE, REGION, MP_PUBLIC_KEY } from './config.js';
+import { FIREBASE, API_URL, MP_PUBLIC_KEY } from './config.js';
 
 const CURRENCY = '$';
 const DRIVER_TTL = 120000;
@@ -17,10 +16,21 @@ if (FIREBASE.apiKey === 'COMPLETAR') {
   throw new Error('Falta completar js/config.js');
 }
 const fb = initializeApp(FIREBASE);
-const auth = getAuth(fb), db = getDatabase(fb), fns = getFunctions(fb, REGION);
+const auth = getAuth(fb), db = getDatabase(fb);
 const call = name => async data => {
-  try { return (await httpsCallable(fns, name)(data)).data; }
-  catch (e) { throw new Error(e.message && !/^internal$/i.test(e.message) ? e.message : 'Algo salió mal. Probá de nuevo.'); }
+  const u = auth.currentUser;
+  if (!u) throw new Error('Iniciá sesión para continuar.');
+  let r;
+  try {
+    r = await fetch(API_URL + '/api/call', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + await u.getIdToken() },
+      body: JSON.stringify({ fn: name, data })
+    });
+  } catch { throw new Error('Sin conexión. Revisá tu internet.'); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'Algo salió mal. Probá de nuevo.');
+  return j.data;
 };
 const api = { createOrder: call('createOrder'), payOrder: call('payOrder'), cancelOrder: call('cancelOrder') };
 
