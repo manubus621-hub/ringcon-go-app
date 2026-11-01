@@ -32,7 +32,7 @@ const call = name => async data => {
   if (!r.ok) throw new Error(j.error || 'Algo salió mal. Probá de nuevo.');
   return j.data;
 };
-const api = { createOrder: call('createOrder'), payOrder: call('payOrder'), cancelOrder: call('cancelOrder') };
+const api = { getConfig: call('getConfig'), createOrder: call('createOrder'), payOrder: call('payOrder'), cancelOrder: call('cancelOrder') };
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -54,7 +54,7 @@ const state = {
   saved: store.get('rcg:addresses', []),
   view: 'home', bizId: null, trackId: null, cat: 'Todo', q: '',
   cart: { bizId: null, items: {} },
-  tip: 1000, method: 'tarjeta', notes: '', returnToCheckout: false,
+  tip: 1000, method: 'efectivo', card: false, notes: '', returnToCheckout: false,
   catalog: null, orders: {}, presence: {}
 };
 const prev = {}, orderSubs = {};
@@ -311,7 +311,7 @@ function openCheckout() {
     <div class="tips" id="co-tips">${TIPS.map(v => `<button class="pill" data-act="tip" data-v="${v}">${v ? money(v) : 'No'}</button>`).join('')}</div>
     <h3>¿Cómo pagás?</h3>
     <div class="methods" id="co-methods">
-      <button class="method" data-act="method" data-m="tarjeta">💳 Tarjeta<small>Débito o crédito</small></button>
+      <button class="method" data-act="method" data-m="tarjeta" ${state.card ? '' : 'disabled'}>💳 Tarjeta<small>${state.card ? 'Débito o crédito' : 'Próximamente'}</small></button>
       <button class="method" data-act="method" data-m="efectivo">💵 Efectivo<small>Pagás al recibir</small></button>
     </div>
     <div id="cash-form" class="hide">
@@ -342,6 +342,8 @@ function drawCo() {
   $('#co-pay').textContent = isCard ? `Ir a pagar ${money(t.total)}` : `Pedir ya · ${money(t.total)}`;
   $$('#co-tips .pill').forEach(p => p.classList.toggle('on', +p.dataset.v === state.tip));
   $$('#co-methods .method').forEach(m => m.classList.toggle('on', m.dataset.m === state.method));
+  const cardBtn = $('#co-methods [data-m="tarjeta"]');
+  cardBtn.disabled = !state.card; cardBtn.querySelector('small').textContent = state.card ? 'Débito o crédito' : 'Próximamente';
   $('#co-hint').textContent = isCard
     ? 'En el siguiente paso cargás la tarjeta en el formulario seguro de Mercado Pago. El pedido sale a los conductores cuando el pago se acredita.'
     : `Pagás ${money(t.total)} en efectivo al conductor cuando recibís tu pedido.`;
@@ -474,7 +476,7 @@ const A = {
   'co-dec': t => { addItem(state.cart.bizId, t.dataset.id, -1); drawCo(); refreshCtls(); renderDock(); },
   cart: () => openCheckout(),
   tip: t => { state.tip = +t.dataset.v; drawCo(); },
-  method: t => { state.method = t.dataset.m; drawCo(); },
+  method: t => { if (t.dataset.m === 'tarjeta' && !state.card) return; state.method = t.dataset.m; drawCo(); },
   place: () => placeOrder(),
   pay: t => { const o = state.orders[t.dataset.id]; if (o) openPaySheet(o.id, o.totals.total); },
   track: t => { closeSheet(); go('track', t.dataset.id); },
@@ -552,6 +554,8 @@ onAuthStateChanged(auth, async u => {
   state.uid = u ? u.uid : null; state.user = null;
   if (u) {
     try { state.user = (await new Promise((ok, ko) => onValue(ref(db, `customers/${u.uid}`), s => ok(s.val()), ko, { onlyOnce: true }))) || null; } catch {}
+    // La tarjeta aparece sola cuando el servidor tiene configurado Mercado Pago.
+    api.getConfig().then(c => { state.card = !!c.card; state.method = state.card ? 'tarjeta' : 'efectivo'; drawCo(); }).catch(() => {});
     unsubs.push(onValue(ref(db, `userOrders/${u.uid}`), s => Object.keys(s.val() || {}).forEach(watchOrder)));
     unsubs.push(onValue(ref(db, 'presence'), s => { state.presence = s.val() || {}; updateLive(); if (state.view === 'track') renderTrack(); }, () => {}));
   }

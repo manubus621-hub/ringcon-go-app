@@ -131,6 +131,7 @@ h1,h2,h3,.logo{font-family:var(--display);letter-spacing:-.03em}
 .methods{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
 .method{padding:16px;border-radius:18px;border:1.5px solid var(--line);text-align:left;font-weight:700;background:var(--soft);transition:all .2s}
 .method.on{border-color:var(--brand);background:#fff;box-shadow:0 8px 20px -6px rgba(255,59,31,.2)}
+.method[disabled]{opacity:.45;cursor:not-allowed}
 .method small{display:block;font-weight:500;color:var(--mute);margin-top:2px}
 
 

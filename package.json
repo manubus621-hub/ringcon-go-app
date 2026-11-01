@@ -2,7 +2,6 @@
   "name": "ringcon-go-app",
   "private": true,
   "description": "Ringcon Go: app de clientes y API (funciones de Vercel)",
-  "engines": { "node": "20.x" },
   "dependencies": {
     "firebase-admin": "^12.7.0"
   }

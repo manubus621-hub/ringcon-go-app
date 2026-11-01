@@ -167,6 +167,8 @@ async function housekeeping() {
 /* ─────────── operaciones (las llama el navegador por /api/call) ─────────── */
 const H = {};
 
+H.getConfig = async () => ({ card: Boolean(process.env.MP_ACCESS_TOKEN) });
+
 H.createOrder = async ({ uid, data: d }) => {
   await rateLimit(`${uid}/order`, 12, 3600e3);
   const profile = (await db.ref(`customers/${uid}`).get()).val();
@@ -189,6 +191,7 @@ H.createOrder = async ({ uid, data: d }) => {
   if (!items.length || items.length > 30) fail('invalid-argument', 'El carrito está vacío.');
 
   const method = d.method === 'tarjeta' || d.method === 'efectivo' ? d.method : fail('invalid-argument', 'Elegí cómo pagar.');
+  if (method === 'tarjeta' && !process.env.MP_ACCESS_TOKEN) fail('failed-precondition', 'El pago con tarjeta todavía no está disponible. Elegí efectivo.');
   const tip = TIPS.includes(Number(d.tip)) ? Number(d.tip) : 0;
 
   const a = d.address || {}, text = str(a.text, 120);
