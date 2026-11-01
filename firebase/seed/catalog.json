@@ -1,0 +1,168 @@
+{
+  "catalog": {
+    "burger": {
+      "name": "Burger Lab",
+      "cat": "Burgers",
+      "emoji": "🍔",
+      "color": "#ffe8d4",
+      "eta": "20–30 min",
+      "fee": 2250,
+      "rating": 4.8,
+      "order": 0,
+      "open": true,
+      "menu": {
+        "bu1": {
+          "name": "Classic Lab",
+          "desc": "Doble carne, cheddar, pepinillos",
+          "price": 14250,
+          "emoji": "🍔",
+          "order": 0
+        },
+        "bu2": {
+          "name": "Crispy Chicken",
+          "desc": "Pollo crujiente, mayo de limón",
+          "price": 13350,
+          "emoji": "🍗",
+          "order": 1
+        },
+        "bu3": {
+          "name": "Papas rústicas",
+          "desc": "Con sal de ajo",
+          "price": 5700,
+          "emoji": "🍟",
+          "order": 2
+        },
+        "bu4": {
+          "name": "Limonada",
+          "desc": "Con menta, 500 ml",
+          "price": 4350,
+          "emoji": "🍋",
+          "order": 3
+        }
+      }
+    },
+    "pizza": {
+      "name": "Pizza Nonna",
+      "cat": "Pizza",
+      "emoji": "🍕",
+      "color": "#ffe3e0",
+      "eta": "25–35 min",
+      "fee": 2700,
+      "rating": 4.7,
+      "order": 1,
+      "open": true,
+      "menu": {
+        "pi1": {
+          "name": "Margherita",
+          "desc": "Tomate, mozzarella, albahaca",
+          "price": 15750,
+          "emoji": "🍕",
+          "order": 0
+        },
+        "pi2": {
+          "name": "Pepperoni",
+          "desc": "Doble pepperoni",
+          "price": 18000,
+          "emoji": "🍕",
+          "order": 1
+        },
+        "pi3": {
+          "name": "Focaccia",
+          "desc": "Romero y aceite de oliva",
+          "price": 6750,
+          "emoji": "🥖",
+          "order": 2
+        },
+        "pi4": {
+          "name": "Tiramisú",
+          "desc": "Receta de la casa",
+          "price": 7350,
+          "emoji": "🍰",
+          "order": 3
+        }
+      }
+    },
+    "sushi": {
+      "name": "Sushi Kai",
+      "cat": "Sushi",
+      "emoji": "🍣",
+      "color": "#e3f1ff",
+      "eta": "30–40 min",
+      "fee": 3300,
+      "rating": 4.9,
+      "order": 2,
+      "open": true,
+      "menu": {
+        "su1": {
+          "name": "Roll Salmón (8)",
+          "desc": "Salmón, palta, queso crema",
+          "price": 17850,
+          "emoji": "🍣",
+          "order": 0
+        },
+        "su2": {
+          "name": "Roll Crunchy (8)",
+          "desc": "Langostino tempura",
+          "price": 18750,
+          "emoji": "🍤",
+          "order": 1
+        },
+        "su3": {
+          "name": "Gyozas (5)",
+          "desc": "Cerdo y vegetales",
+          "price": 9750,
+          "emoji": "🥟",
+          "order": 2
+        },
+        "su4": {
+          "name": "Té helado",
+          "desc": "Jazmín",
+          "price": 4200,
+          "emoji": "🧋",
+          "order": 3
+        }
+      }
+    },
+    "tacos": {
+      "name": "Tacos El Güero",
+      "cat": "Tacos",
+      "emoji": "🌮",
+      "color": "#fff3c9",
+      "eta": "15–25 min",
+      "fee": 1800,
+      "rating": 4.6,
+      "order": 3,
+      "open": true,
+      "menu": {
+        "ta1": {
+          "name": "Tacos al pastor (3)",
+          "desc": "Piña y cilantro",
+          "price": 11250,
+          "emoji": "🌮",
+          "order": 0
+        },
+        "ta2": {
+          "name": "Burrito de res",
+          "desc": "Frijoles, arroz, guacamole",
+          "price": 13800,
+          "emoji": "🌯",
+          "order": 1
+        },
+        "ta3": {
+          "name": "Nachos",
+          "desc": "Queso y jalapeños",
+          "price": 8850,
+          "emoji": "🧀",
+          "order": 2
+        },
+        "ta4": {
+          "name": "Agua de jamaica",
+          "desc": "500 ml",
+          "price": 3750,
+          "emoji": "🥤",
+          "order": 3
+        }
+      }
+    }
+  }
+}
