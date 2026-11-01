@@ -1,0 +1,19 @@
+rules_version = '2';
+
+// Fotos de verificación de conductores. Solo el dueño puede subirlas;
+// el panel admin las lee a través de la función getDriverDocs (Admin SDK).
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /driverDocs/{uid}/{file} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && file in ['dni_frente.jpg', 'dni_dorso.jpg', 'selfie.jpg']
+        && request.resource.size < 4 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+    }
+    match /{all=**} {
+      allow read, write: if false;
+    }
+  }
+}

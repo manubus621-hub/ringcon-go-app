@@ -1,0 +1,85 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "admins": {
+      "$uid": { ".read": "auth != null && auth.uid === $uid" }
+    },
+
+    "catalog": {
+      ".read": true,
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
+    },
+
+    "customers": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['name'])",
+        "name": { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 40" },
+        "phone": { ".validate": "newData.isString() && newData.val().matches(/^[0-9 +()-]{0,20}$/)" },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "userOrders": {
+      "$uid": { ".read": "auth != null && auth.uid === $uid" }
+    },
+
+    "orders": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".indexOn": ["status"],
+      "$id": {
+        ".read": "auth != null && (data.child('customerUid').val() === auth.uid || data.child('driver/uid').val() === auth.uid)"
+      }
+    },
+
+    "openOrders": {
+      ".read": "auth != null && (root.child('drivers').child(auth.uid).child('status').val() === 'aprobado' || root.child('admins').child(auth.uid).val() === true)"
+    },
+
+    "presence": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid && root.child('drivers').child($uid).child('status').val() === 'aprobado' && root.child('drivers').child($uid).child('licenciaVence').val() > now",
+        ".validate": "newData.hasChildren(['online', 'lastSeen'])",
+        "online": { ".validate": "newData.isBoolean()" },
+        "lastSeen": { ".validate": "newData.val() === now" },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "drivers": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": { ".read": "auth != null && auth.uid === $uid" }
+    },
+
+    "driverActive": {
+      "$uid": { ".read": "auth != null && auth.uid === $uid" }
+    },
+
+    "settlements": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": { ".read": "auth != null && auth.uid === $uid" }
+    },
+
+    "padron": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$dni": {
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true && (!data.child('uid').exists() || (newData.exists() && newData.child('uid').val() === data.child('uid').val()))",
+        ".validate": "$dni.matches(/^[0-9]{7,8}$/) && newData.hasChildren(['nombre', 'apellido', 'nacimiento', 'licenciaVence'])",
+        "nombre": { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 60" },
+        "apellido": { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 60" },
+        "nacimiento": { ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)" },
+        "telefono": { ".validate": "newData.isString() && newData.val().length <= 20" },
+        "vehiculo": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "patente": { ".validate": "newData.isString() && newData.val().length <= 10" },
+        "licenciaVence": { ".validate": "newData.isNumber()" },
+        "activo": { ".validate": "newData.isBoolean()" },
+        "uid": { ".validate": "newData.isString()" },
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}
