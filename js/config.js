@@ -2,12 +2,13 @@
    Copiá los valores de Firebase Console → Configuración del proyecto → Tus apps → App web.
    Tiene que ser IGUAL en la app de clientes y en la de conductores. */
 export const FIREBASE = {
-  apiKey: 'COMPLETAR',
-  authDomain: 'ringcon-go-e7f62.firebaseapp.com',
-  databaseURL: 'https://ringcon-go-e7f62-default-rtdb.firebaseio.com',
-  projectId: 'ringcon-go-e7f62',
-  storageBucket: 'ringcon-go-e7f62.appspot.com',
-  appId: 'COMPLETAR'
+  apiKey: 'AIzaSyDKrQcRn5zbW9VDiGBsgdAh6UlbOGAP4Ps',
+  authDomain: 'ringcon-go.firebaseapp.com',
+  databaseURL: 'https://ringcon-go-default-rtdb.firebaseio.com',
+  projectId: 'ringcon-go',
+  storageBucket: 'ringcon-go.firebasestorage.app',
+  messagingSenderId: '868935005608',
+  appId: '1:868935005608:web:82b9d581ffeaf689f2d99d'
 };
 export const REGION = 'us-central1';
 

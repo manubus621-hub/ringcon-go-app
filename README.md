@@ -24,15 +24,17 @@ El backend compartido (reglas y funciones) vive en la carpeta `firebase/` de est
 
 ## Puesta en marcha (una sola vez)
 
-1. **Firebase Console** (proyecto `ringcon-go-e7f62`):
+1. **Firebase Console** (proyecto `ringcon-go`):
    - Pasá el proyecto al plan **Blaze**. Cloud Functions lo exige; con poco uso, el costo es casi nulo.
    - Authentication → Método de acceso: activá **Anónimo** y **Correo/contraseña**.
+   - Creá la **Realtime Database** (no Firestore) en la ubicación **Estados Unidos (us-central1)**,
+     en modo bloqueado. Su URL tiene que ser `https://ringcon-go-default-rtdb.firebaseio.com`.
    - Activá **Storage**.
    - Configuración del proyecto → Tus apps → App web: copiá `apiKey`, `appId` y `storageBucket` en
      `js/config.js`, en este repo y en el de conductores.
 2. **Mercado Pago** → Tus integraciones → Credenciales:
    - Copiá la **Public Key** en `js/config.js` (`MP_PUBLIC_KEY`).
-   - En Webhooks configurá la URL `https://us-central1-ringcon-go-e7f62.cloudfunctions.net/mpWebhook`
+   - En Webhooks configurá la URL `https://us-central1-ringcon-go.cloudfunctions.net/mpWebhook`
      con el evento *Pagos*, y copiá la **clave secreta** que te muestra.
    - Probá primero con las credenciales de **prueba** y sus tarjetas de prueba.
 3. **Desplegar el backend** (necesitás Node 20 y `npm i -g firebase-tools`):
