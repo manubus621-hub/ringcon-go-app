@@ -15,13 +15,16 @@ const { initializeApp, cert, getApps } = require('firebase-admin/app');
 const { getDatabase, ServerValue } = require('firebase-admin/database');
 const { getAuth } = require('firebase-admin/auth');
 
-if (!getApps().length) {
-  initializeApp({
-    credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}')),
-    databaseURL: process.env.FIREBASE_DATABASE_URL
-  });
+// Se inicializa en la primera llamada: si falta la clave, la API responde un error claro en vez de caerse.
+let db;
+function init() {
+  if (db) return;
+  let account;
+  try { account = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || ''); } catch {}
+  if (!account || !account.project_id || !process.env.FIREBASE_DATABASE_URL) fail('unavailable', 'El servidor todavía no está configurado. Probá más tarde.');
+  if (!getApps().length) initializeApp({ credential: cert(account), databaseURL: process.env.FIREBASE_DATABASE_URL });
+  db = getDatabase();
 }
-const db = getDatabase();
 
 const PUBLIC_URL = (process.env.PUBLIC_URL || 'https://ringcon-go.vercel.app').replace(/\/+$/, '');
 const WEBHOOK_URL = `${PUBLIC_URL}/api/mp-webhook`;
@@ -137,6 +140,7 @@ function validSignature(headers, dataId, secret) {
 }
 
 async function webhook(query, body, headers) {
+  init();
   const type = query.type || query.topic || (body && body.type);
   const id = String(query['data.id'] || (body && body.data && body.data.id) || '');
   if (type !== 'payment' || !/^\d{1,20}$/.test(id)) return 'ignorado';
@@ -436,6 +440,7 @@ H.driverRelease = async ({ uid, data }) => {
 
 /* ─────────── entrada HTTP ─────────── */
 async function call(fn, data, idToken) {
+  init();
   if (!Object.prototype.hasOwnProperty.call(H, fn)) fail('not-found', 'Operación desconocida.');
   if (!idToken) fail('unauthenticated', 'Iniciá sesión para continuar.');
   let uid;
