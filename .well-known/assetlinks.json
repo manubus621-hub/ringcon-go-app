@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.ringcongo.app",
+        "sha256_cert_fingerprints": ["C6:A4:12:B1:1B:BA:47:8E:DE:E8:1F:3B:05:B5:D6:47:A2:B9:F4:9D:B0:34:D8:7E:42:9F:8A:BA:A7:1A:A0:25"]
+      }
+    }]
