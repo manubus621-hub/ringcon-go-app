@@ -10,9 +10,11 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
   try {
-    const { fn, data } = req.body || {};
+    const { fn, data } = req.body && typeof req.body === 'object' ? req.body : {};
     const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-    res.status(200).json({ data: await call(String(fn || ''), data, token) });
+    // IP real del cliente: en Vercel estos encabezados los pone la plataforma, no el navegador.
+    const ip = String(req.headers['x-real-ip'] || String(req.headers['x-forwarded-for'] || '').split(',')[0] || '').trim();
+    res.status(200).json({ data: await call(String(fn || '').slice(0, 40), data, token, { ip }) });
   } catch (e) {
     if (e instanceof ApiError) return res.status(e.status).json({ error: e.message });
     console.error(e);

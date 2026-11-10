@@ -23,6 +23,7 @@
 
     "catalog": {
       ".read": true,
+      ".indexOn": ["townId"],
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$biz": {
         ".validate": "$biz.matches(/^[a-z0-9-]{1,40}$/) && newData.hasChildren(['name', 'fee', 'townId'])",
@@ -81,11 +82,24 @@
     },
 
     "openOrders": {
-      ".read": "auth != null && (root.child('drivers').child(auth.uid).child('status').val() === 'aprobado' || root.child('admins').child(auth.uid).val() === true)"
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$town": {
+        ".read": "auth != null && root.child('drivers').child(auth.uid).child('status').val() === 'aprobado' && root.child('drivers').child(auth.uid).child('townId').val() === $town"
+      }
+    },
+
+    "online": {
+      "$town": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && (!newData.exists() || (root.child('drivers').child($uid).child('status').val() === 'aprobado' && root.child('drivers').child($uid).child('townId').val() === $town && root.child('drivers').child($uid).child('licenciaVence').val() > now))",
+          ".validate": "newData.val() === true"
+        }
+      }
     },
 
     "presence": {
-      ".read": "auth != null",
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$uid": {
         ".write": "auth != null && auth.uid === $uid && root.child('drivers').child($uid).child('status').val() === 'aprobado' && root.child('drivers').child($uid).child('licenciaVence').val() > now",
         ".validate": "newData.hasChildren(['online', 'lastSeen'])",
@@ -97,6 +111,7 @@
 
     "drivers": {
       ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".indexOn": ["townId"],
       "$uid": { ".read": "auth != null && auth.uid === $uid" }
     },
 

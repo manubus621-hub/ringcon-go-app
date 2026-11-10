@@ -1,11 +1,10 @@
 /* App de clientes Ringcon Go */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInAnonymously, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getDatabase, ref, onValue, set } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+import { getDatabase, ref, onValue, set, query, orderByChild, equalTo, limitToLast } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
 import { FIREBASE, API_URL, MP_PUBLIC_KEY, VAPID_KEY } from './config.js';
 
 const CURRENCY = '$';
-const DRIVER_TTL = 120000;
 const TIPS = [0, 1000, 2000, 3000];
 const SERVICE_RATE = 0.15;
 // Caja de búsqueda de direcciones: alrededores del pueblo elegido (sale de su centro y radio).
@@ -77,7 +76,7 @@ const state = {
   view: 'home', bizId: null, trackId: null, cat: 'Todo', q: '',
   cart: { bizId: null, items: {} },
   tip: 1000, method: 'efectivo', card: false, split: false, notes: '', returnToCheckout: false,
-  catalog: null, towns: {}, town: store.get('rcg:town', null), orders: {}, presence: {}
+  catalog: null, towns: {}, town: store.get('rcg:town', null), orders: {}, online: {}
 };
 const prev = {}, orderSubs = {};
 let closeT, placing = false, geo = null, sugT, sugN = [], brick = null, unsubs = [];
@@ -116,7 +115,7 @@ function addItem(bizId, itemId, d) {
 const code = o => o.id.slice(-5).toUpperCase();
 const mine = () => Object.values(state.orders).filter(Boolean).sort((a, b) => b.createdAt - a.createdAt);
 const activeOrder = () => mine().find(o => !['entregado', 'cancelado'].includes(o.status));
-const onlineDrivers = () => Object.values(state.presence).filter(d => d.online && Date.now() - (d.lastSeen || 0) < DRIVER_TTL);
+const onlineDrivers = () => Object.keys(state.online || {});   // conductores en línea del pueblo elegido
 
 function statusInfo(o) {
   const d = o.driver ? o.driver.name.split(' ')[0] : 'Tu conductor', k = o.kitchen;
@@ -563,7 +562,7 @@ document.addEventListener('submit', async e => {
   const name = $('#l-name').value.trim().replace(/\s+/g, ' '), phone = $('#l-phone').value.trim(), town = $('#l-town').value;
   if (name.length < 2) return;
   if (!state.towns[town]) { toast('Elegí tu pueblo', 'err'); return; }
-  state.town = town; store.set('rcg:town', town);
+  state.town = town; store.set('rcg:town', town); watchCatalog();
   const btn = $('#l-btn'); btn.disabled = true;
   try {
     const cred = auth.currentUser || (await signInAnonymously(auth)).user;
@@ -593,13 +592,33 @@ function stopWatching() {
   state.orders = {};
 }
 
-onValue(ref(db, 'catalog'), s => { state.catalog = s.val() || {}; if (state.view === 'home') drawBiz(); else if (state.view === 'biz') renderBiz(); },
-  () => { state.catalog = {}; drawBiz(); });
+// Se baja solo lo del pueblo elegido: sus locales y cuántos conductores hay en línea. Con muchos pueblos y muchos
+// clientes conectados, bajar todo (y recibir cada latido de cada conductor) no escala.
+let catalogSub = null, onlineSub = null, catalogTown, onlineKey;
+function watchCatalog() {
+  if (catalogTown === state.town) return;
+  catalogTown = state.town;
+  if (catalogSub) { catalogSub(); catalogSub = null; }
+  state.catalog = null;
+  if (!state.town) { state.catalog = {}; return; }
+  catalogSub = onValue(query(ref(db, 'catalog'), orderByChild('townId'), equalTo(state.town)),
+    s => { state.catalog = s.val() || {}; if (state.view === 'home') drawBiz(); else if (state.view === 'biz') renderBiz(); },
+    () => { state.catalog = {}; drawBiz(); });
+}
+function watchOnline() {
+  const k = state.uid && state.town ? `${state.uid}|${state.town}` : null;
+  if (onlineKey === k) return;
+  onlineKey = k;
+  if (onlineSub) { onlineSub(); onlineSub = null; }
+  state.online = {};
+  if (k) onlineSub = onValue(ref(db, `online/${state.town}`), s => { state.online = s.val() || {}; updateLive(); if (state.view === 'track') renderTrack(); }, () => {});
+}
 
 // Pueblos disponibles. Si el pueblo guardado ya no existe, se usa el primero.
 onValue(ref(db, 'towns'), s => {
   state.towns = s.val() || {};
   if (!state.towns[state.town]) { state.town = townList()[0]?.id || null; store.set('rcg:town', state.town); }
+  watchCatalog(); watchOnline();
   if (state.ready) render();
 }, () => {});
 
@@ -612,7 +631,8 @@ document.addEventListener('change', e => {
     state.cart = { bizId: null, items: {} };
   }
   state.town = id; store.set('rcg:town', id);
-  drawBiz(); renderDock();
+  watchCatalog(); watchOnline();
+  drawBiz(); renderDock(); updateLive();
 });
 
 onAuthStateChanged(auth, async u => {
@@ -623,9 +643,10 @@ onAuthStateChanged(auth, async u => {
     // La tarjeta aparece sola cuando el servidor tiene configurado Mercado Pago.
     api.getConfig().then(c => { state.card = !!c.card; state.split = !!c.split; state.method = state.card ? 'tarjeta' : 'efectivo'; drawCo(); }).catch(() => {});
     enablePush(false);
-    unsubs.push(onValue(ref(db, `userOrders/${u.uid}`), s => Object.keys(s.val() || {}).forEach(watchOrder)));
-    unsubs.push(onValue(ref(db, 'presence'), s => { state.presence = s.val() || {}; updateLive(); if (state.view === 'track') renderTrack(); }, () => {}));
+    // Solo los últimos pedidos: cada uno abre su propia escucha en vivo.
+    unsubs.push(onValue(query(ref(db, `userOrders/${u.uid}`), limitToLast(15)), s => Object.keys(s.val() || {}).forEach(watchOrder)));
   }
+  watchOnline();
   state.ready = true; render();
 });
 setInterval(updateLive, 10000);

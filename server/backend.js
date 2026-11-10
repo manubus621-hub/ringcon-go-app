@@ -45,7 +45,7 @@ const KITCHEN_OK = ['aceptado', 'preparando', 'listo'];
 const KITCHEN_TTL = 10 * 60e3;          // si el local no responde en 10 minutos, el pedido se cancela y se devuelve el pago
 const BIZ_ORDER_TTL = 36 * 3600e3;      // el panel del local conserva lo terminado un día y medio
 const OAUTH_REDIRECT = `${PUBLIC_URL}/api/mp-oauth`;
-const STATE_TTL = 7 * 86400e3;
+const STATE_TTL = 2 * 86400e3;
 const DOCS = ['dni_frente', 'dni_dorso', 'selfie'];
 const MAX_DOC_CHARS = 900000;   // ~650 KB de JPEG en base64
 const PENDING_PAY_TTL = 30 * 60e3;
@@ -68,6 +68,12 @@ function distKm(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLon / 2) ** 2;
   return 12742 * Math.asin(Math.sqrt(h));
 }
+
+// Las cuentas anónimas son gratis de crear, así que el límite por usuario no alcanza: las operaciones que se pueden
+// abusar en masa también se limitan por IP. No se guarda la IP, solo una huella. Varios vecinos pueden compartir IP
+// (redes de celular), por eso los topes son holgados: frenan un script, no a un pueblo pidiendo a la vez.
+const IP_LIMITS = { createOrder: [120, 3600e3], payOrder: [120, 3600e3], driverLookup: [60, 3600e3], driverRegister: [20, 3600e3], driverUploadDoc: [120, 3600e3], savePushToken: [120, 3600e3] };
+const ipKey = ip => (ip ? crypto.createHash('sha256').update(String(ip)).digest('hex').slice(0, 24) : null);
 
 // Ventana fija por usuario (o por DNI) para frenar abuso y fuerza bruta.
 async function rateLimit(bucket, max, windowMs) {
@@ -111,8 +117,12 @@ async function mpToken(params) {
 // Las credenciales del local quedan en mpSellers/, que ninguna regla deja leer desde un navegador.
 async function saveSeller(bizId, t) {
   const now = Date.now(), userId = String(t.user_id || '');
+  // A qué cuenta quedó conectado: el admin lo ve y lo confirma con el dueño. Si el enlace cayera en otras manos,
+  // los cobros de ese local irían a otra cuenta.
+  const me = await mp('/users/me', { token: t.access_token }).catch(() => null);
+  const account = me ? str([me.nickname, me.email].filter(Boolean).join(' · '), 120) : '';
   await db.ref().update({
-    [`mpSellers/${bizId}`]: { userId, accessToken: t.access_token, refreshToken: t.refresh_token || null, publicKey: t.public_key || null, expiresAt: now + (Number(t.expires_in) || 180 * 86400) * 1000, updatedAt: now },
+    [`mpSellers/${bizId}`]: { userId, account, accessToken: t.access_token, refreshToken: t.refresh_token || null, publicKey: t.public_key || null, expiresAt: now + (Number(t.expires_in) || 180 * 86400) * 1000, updatedAt: now },
     ...(/^\d{1,20}$/.test(userId) ? { [`mpUsers/${userId}`]: bizId } : {}),
     [`catalog/${bizId}/mp`]: true
   });
@@ -159,7 +169,7 @@ const REJECT = {
 const money = n => '$' + String(Math.round(Number(n || 0))).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 const tokenKey = t => crypto.createHash('sha256').update(t).digest('hex').slice(0, 32);
 const staffOf = async bizId => Object.keys((await db.ref(`bizStaff/${bizId}`).get()).val() || {});
-const driversOf = async townId => Object.entries((await db.ref('drivers').get()).val() || {}).filter(([, d]) => d.status === 'aprobado' && d.townId === townId).map(([uid]) => uid);
+const driversOf = async townId => Object.entries((await db.ref('drivers').orderByChild('townId').equalTo(townId).get()).val() || {}).filter(([, d]) => d.status === 'aprobado').map(([uid]) => uid);
 
 // Nunca frena un pedido: si un aviso falla, queda en el registro y nada más.
 async function push(uids, { title, body, link, tag }) {
@@ -217,8 +227,10 @@ const bizView = o => ({
 // Se llama después de cada cambio de un pedido. A los conductores solo les llegan los pedidos "nuevo" (sin teléfono
 // ni datos del cliente) y, si el local usa el panel, recién cuando el local lo aceptó.
 async function syncOpen(id) {
-  const o = (await db.ref(`orders/${id}`).get()).val(), ref = db.ref(`openOrders/${id}`);
-  if (!o) { await ref.remove(); return; }
+  const o = (await db.ref(`orders/${id}`).get()).val();
+  if (!o || !o.townId) return;
+  // Un tablero por pueblo: cada conductor recibe (y puede leer) solo los pedidos del suyo.
+  const ref = db.ref(`openOrders/${o.townId}/${id}`);
   if (o.status === 'nuevo' && (!o.kitchen || KITCHEN_OK.includes(o.kitchen))) await ref.set({
     id: o.id, createdAt: o.createdAt, business: o.business, townId: o.townId,
     address: { text: o.address.text, ...(o.address.lat ? { lat: o.address.lat, lon: o.address.lon } : {}) },
@@ -299,30 +311,66 @@ async function housekeeping() {
   const now = Date.now();
   const tick = await db.ref('meta/housekeepingAt').transaction(t => (t && now - t < HOUSEKEEPING_EVERY) ? undefined : now);
   if (!tick.committed) return;
-  const pend = (await db.ref('orders').orderByChild('status').equalTo('pago_pendiente').get()).val() || {};
-  for (const o of Object.values(pend)) {
-    if (now - (o.createdAt || 0) < PENDING_PAY_TTL) continue;
-    await db.ref(`orders/${o.id}`).update({ status: 'cancelado', cancelledBy: 'sistema', t_cancelado: now, updatedAt: now });
-  }
-  const pres = (await db.ref('presence').get()).val() || {};
-  const stale = {};
-  for (const [uid, p] of Object.entries(pres)) if (now - (p.lastSeen || 0) > PRESENCE_TTL) stale[uid] = null;
-  if (Object.keys(stale).length) await db.ref('presence').update(stale);
-  // Locales que no respondieron a tiempo.
-  const fresh = (await db.ref('orders').orderByChild('status').equalTo('nuevo').get()).val() || {};
-  for (const o of Object.values(fresh)) if (o.kitchen === 'pendiente') await expireKitchen(o.id).catch(e => console.error('cocina', o.id, e));
-  // Panel del local: fuera lo terminado hace más de un día y medio.
-  const old = {};
-  for (const [b, list] of Object.entries((await db.ref('bizOrders').get()).val() || {}))
-    for (const [id, v] of Object.entries(list || {}))
-      if (['entregado', 'cancelado'].includes(v.status) && now - (v.updatedAt || v.createdAt || 0) > BIZ_ORDER_TTL) old[`${b}/${id}`] = null;
-  if (Object.keys(old).length) await db.ref('bizOrders').update(old);
-  // Las credenciales de Mercado Pago de cada local duran 180 días: se renuevan solas un mes antes.
-  if (splitOn()) for (const [b, sel] of Object.entries((await db.ref('mpSellers').get()).val() || {})) {
-    if (sel.error || !sel.refreshToken || sel.expiresAt - now > 30 * 86400e3) continue;
-    try { await saveSeller(b, await mpToken({ grant_type: 'refresh_token', refresh_token: sel.refreshToken })); }
-    catch (e) { console.error('renovación Mercado Pago', b, e.status); if (sel.expiresAt < now) await sellerBroken(b, 'vencido'); }
-  }
+  // Cada tarea va por separado: si una falla, las demás corren igual.
+  const task = async (name, fn) => { try { await fn(); } catch (e) { console.error('mantenimiento:', name, e); } };
+
+  await task('pagos vencidos', async () => {
+    const pend = (await db.ref('orders').orderByChild('status').equalTo('pago_pendiente').get()).val() || {};
+    for (const o of Object.values(pend)) {
+      if (now - (o.createdAt || 0) < PENDING_PAY_TTL) continue;
+      await db.ref(`orders/${o.id}`).update({ status: 'cancelado', cancelledBy: 'sistema', t_cancelado: now, updatedAt: now });
+    }
+  });
+  await task('conductores en línea', async () => {
+    const pres = (await db.ref('presence').get()).val() || {};
+    const stale = {};
+    for (const [uid, p] of Object.entries(pres)) if (now - (p.lastSeen || 0) > PRESENCE_TTL) stale[uid] = null;
+    if (Object.keys(stale).length) await db.ref('presence').update(stale);
+    // Lista pública por pueblo (online/): fuera quien ya no da señales.
+    const gone = {};
+    for (const [town, list] of Object.entries((await db.ref('online').get()).val() || {}))
+      for (const uid of Object.keys(list || {})) if (!pres[uid] || uid in stale) gone[`${town}/${uid}`] = null;
+    if (Object.keys(gone).length) await db.ref('online').update(gone);
+  });
+  await task('locales sin respuesta', async () => {
+    const fresh = (await db.ref('orders').orderByChild('status').equalTo('nuevo').get()).val() || {};
+    for (const o of Object.values(fresh)) if (o.kitchen === 'pendiente') await expireKitchen(o.id).catch(e => console.error('cocina', o.id, e));
+  });
+  await task('panel del local', async () => {   // fuera lo terminado hace más de un día y medio
+    const old = {};
+    for (const [b, list] of Object.entries((await db.ref('bizOrders').get()).val() || {}))
+      for (const [id, v] of Object.entries(list || {}))
+        if (['entregado', 'cancelado'].includes(v.status) && now - (v.updatedAt || v.createdAt || 0) > BIZ_ORDER_TTL) old[`${b}/${id}`] = null;
+    if (Object.keys(old).length) await db.ref('bizOrders').update(old);
+  });
+  await task('credenciales de Mercado Pago', async () => {   // duran 180 días: se renuevan solas un mes antes
+    if (!splitOn()) return;
+    for (const [b, sel] of Object.entries((await db.ref('mpSellers').get()).val() || {})) {
+      if (sel.error || !sel.refreshToken || sel.expiresAt - now > 30 * 86400e3) continue;
+      try { await saveSeller(b, await mpToken({ grant_type: 'refresh_token', refresh_token: sel.refreshToken })); }
+      catch (e) { console.error('renovación Mercado Pago', b, e.status); if (sel.expiresAt < now) await sellerBroken(b, 'vencido'); }
+    }
+  });
+  await task('tablero por pueblo', async () => {   // una sola vez: pasa al tablero por pueblo lo publicado con la forma anterior
+    if ((await db.ref('meta/openByTown').get()).val()) return;
+    for (const [k, v] of Object.entries((await db.ref('openOrders').get()).val() || {}))
+      if (v && v.id && v.business) { await db.ref(`openOrders/${k}`).remove(); await syncOpen(k); }
+    await db.ref('meta/openByTown').set(true);
+  });
+  await task('contadores de límites', async () => {   // una vez por día: fuera los que ya vencieron
+    const day = await db.ref('meta/rateSweepAt').transaction(t => (t && now - t < 86400e3) ? undefined : now);
+    if (!day.committed) return;
+    const dead = [];
+    const walk = (node, path, depth) => {
+      for (const [k, v] of Object.entries(node || {})) {
+        if (!v || typeof v !== 'object') continue;
+        if (typeof v.t === 'number' && typeof v.n === 'number') { if (now - v.t > 86400e3) dead.push(path + k); }
+        else if (depth < 3) walk(v, `${path}${k}/`, depth + 1);
+      }
+    };
+    walk((await db.ref('rate').get()).val(), '', 0);
+    for (let i = 0; i < dead.length; i += 500) await db.ref('rate').update(Object.fromEntries(dead.slice(i, i + 500).map(k => [k, null])));
+  });
 }
 
 // El local tiene 10 minutos para aceptar. Pasado ese tiempo el pedido se cancela solo y, si se pagó, se devuelve.
@@ -367,7 +415,7 @@ H.createOrder = async ({ uid, data: d }) => {
 
   const items = [];
   for (const [id, q] of Object.entries(d.items || {})) {
-    const m = b.menu && b.menu[id], qty = Math.floor(Number(q));
+    const m = b.menu && Object.prototype.hasOwnProperty.call(b.menu, id) ? b.menu[id] : null, qty = Math.floor(Number(q));
     if (!m || m.available === false || !(qty >= 1 && qty <= 20)) fail('invalid-argument', 'Algún producto ya no está disponible. Revisá el carrito.');
     items.push({ id, name: m.name, qty, price: Number(m.price) });
   }
@@ -583,6 +631,13 @@ H.mpConnectLink = async ({ uid, data }) => {
   return { url: `https://auth.mercadopago.com/authorization?client_id=${encodeURIComponent(process.env.MP_CLIENT_ID)}&response_type=code&platform_id=mp&state=${state}&redirect_uri=${encodeURIComponent(OAUTH_REDIRECT)}` };
 };
 
+// Qué cuenta de Mercado Pago tiene conectada un local (sin credenciales).
+H.mpInfo = async ({ uid, data }) => {
+  if (!(await isAdmin(uid))) fail('permission-denied', 'Solo administradores.');
+  const sel = (await db.ref(`mpSellers/${key(data.bizId)}`).get()).val();
+  return sel ? { connected: !sel.error, userId: sel.userId || '', account: sel.account || '', expiresAt: sel.expiresAt || 0 } : { connected: false };
+};
+
 H.mpDisconnect = async ({ uid, data }) => {
   if (!(await isAdmin(uid))) fail('permission-denied', 'Solo administradores.');
   const bizId = key(data.bizId);
@@ -781,13 +836,15 @@ H.driverRelease = async ({ uid, data }) => {
 };
 
 /* ─────────── entrada HTTP ─────────── */
-async function call(fn, data, idToken) {
+async function call(fn, data, idToken, meta = {}) {
   init();
   if (!Object.prototype.hasOwnProperty.call(H, fn)) fail('not-found', 'Operación desconocida.');
   if (!idToken) fail('unauthenticated', 'Iniciá sesión para continuar.');
   let uid;
   try { uid = (await getAuth().verifyIdToken(idToken)).uid; }
   catch { fail('unauthenticated', 'Tu sesión venció. Volvé a entrar.'); }
+  const limit = IP_LIMITS[fn], ik = limit && ipKey(meta.ip);
+  if (ik) await rateLimit(`ip/${ik}/${fn}`, limit[0], limit[1]);
   // Se espera: Vercel congela la función apenas responde.
   await housekeeping().catch(e => console.error('housekeeping', e));
   return H[fn]({ uid, data: data && typeof data === 'object' ? data : {} });
