@@ -31,7 +31,6 @@ const WEBHOOK_URL = `${PUBLIC_URL}/api/mp-webhook`;
 const DRIVER_EMAIL_DOMAIN = 'conductores.ringcongo.app';
 const TIPS = [0, 1000, 2000, 3000];
 const SERVICE_RATE = 0.15;
-const ZONE = { lat: -37.3906, lon: -68.9298, km: 15 };   // Rincón de los Sauces
 const ACTIVE = ['pago_pendiente', 'nuevo', 'aceptado', 'en_local', 'recogido'];
 const FLOW = { aceptado: 'en_local', en_local: 'recogido', recogido: 'entregado' };
 const DOCS = ['dni_frente', 'dni_dorso', 'selfie'];
@@ -95,7 +94,7 @@ async function syncOpen(id) {
   const o = (await db.ref(`orders/${id}`).get()).val(), ref = db.ref(`openOrders/${id}`);
   if (!o || o.status !== 'nuevo') { await ref.remove(); return; }
   await ref.set({
-    id: o.id, createdAt: o.createdAt, business: o.business,
+    id: o.id, createdAt: o.createdAt, business: o.business, townId: o.townId,
     address: { text: o.address.text, ...(o.address.lat ? { lat: o.address.lat, lon: o.address.lon } : {}) },
     items: Object.values(o.items || {}).reduce((s, i) => s + i.qty, 0),
     driverPay: o.driverPay, total: o.totals.total, method: o.payment.method
@@ -185,6 +184,10 @@ H.createOrder = async ({ uid, data: d }) => {
   const bizId = key(d.bizId);
   const b = (await db.ref(`catalog/${bizId}`).get()).val();
   if (!b || b.open === false) fail('not-found', 'El local no está disponible ahora.');
+  // El pueblo lo define el local, no el navegador: su zona de entrega es la del pueblo.
+  const townId = /^[\w-]{1,40}$/.test(b.townId || '') ? b.townId : null;
+  const town = townId ? (await db.ref(`towns/${townId}`).get()).val() : null;
+  if (!town) fail('unavailable', 'Este local todavía no tiene zona de entrega. Probá más tarde.');
 
   const items = [];
   for (const [id, q] of Object.entries(d.items || {})) {
@@ -202,7 +205,7 @@ H.createOrder = async ({ uid, data: d }) => {
   if (text.length < 5) fail('invalid-argument', 'Escribí tu dirección completa.');
   const address = { text, ref: str(a.ref, 80) };
   if (Number.isFinite(a.lat) && Number.isFinite(a.lon)) {
-    if (distKm(ZONE, { lat: a.lat, lon: a.lon }) > ZONE.km) fail('out-of-range', 'Por ahora solo entregamos en Rincón de los Sauces.');
+    if (distKm(town, { lat: a.lat, lon: a.lon }) > town.km) fail('out-of-range', `Por ahora no llegamos a esa dirección desde ${town.name}.`);
     address.lat = a.lat; address.lon = a.lon;
   }
 
@@ -220,7 +223,7 @@ H.createOrder = async ({ uid, data: d }) => {
   const ref = db.ref('orders').push(), id = ref.key;
   const status = method === 'tarjeta' ? 'pago_pendiente' : 'nuevo';
   const order = {
-    id, status, customerUid: uid,
+    id, status, customerUid: uid, townId,
     createdAt: ServerValue.TIMESTAMP, updatedAt: ServerValue.TIMESTAMP, [`t_${status}`]: ServerValue.TIMESTAMP,
     customer: { name: profile.name, phone: profile.phone || '' },
     business: { id: bizId, name: b.name },
@@ -307,6 +310,7 @@ H.driverRegister = async ({ uid, data: d }) => {
 
   const pRef = db.ref(`padron/${dni}`), p = (await pRef.get()).val();
   if (!p || p.activo === false) fail('not-found', 'Tu DNI no está habilitado en el padrón de conductores.');
+  if (!p.townId) fail('failed-precondition', 'Tu DNI no tiene pueblo asignado. Contactá a la administración.');
   if (p.uid) fail('already-exists', 'Este DNI ya tiene una cuenta. Ingresá con tu contraseña.');
   if (norm(d.apellido) !== norm(p.apellido) || str(d.nacimiento, 10) !== p.nacimiento) fail('permission-denied', 'Los datos no coinciden con el padrón. Revisalos con tu DNI en la mano.');
   const password = typeof d.password === 'string' ? d.password : '';
@@ -322,7 +326,7 @@ H.driverRegister = async ({ uid, data: d }) => {
   await db.ref(`drivers/${user.uid}`).set({
     dni, nombre: p.nombre, apellido: p.apellido,
     telefono: p.telefono || str(d.telefono, 20), vehiculo: p.vehiculo || '', patente: p.patente || '',
-    licenciaVence: p.licenciaVence, status: 'docs_pendientes', createdAt: ServerValue.TIMESTAMP
+    licenciaVence: p.licenciaVence, townId: p.townId, status: 'docs_pendientes', createdAt: ServerValue.TIMESTAMP
   });
   return { email: driverEmail(dni) };
 };
@@ -361,7 +365,9 @@ H.reviewDriver = async ({ uid: adminUid, data }) => {
   if (!d) fail('not-found', 'Conductor no encontrado.');
   const next = { aprobar: 'aprobado', rechazar: 'rechazado', suspender: 'suspendido' }[action] || fail('invalid-argument', 'Acción inválida.');
   if (next === 'aprobado' && !(d.licenciaVence > Date.now())) fail('failed-precondition', 'La licencia de conducir está vencida en el padrón.');
-  await ref.update({ status: next, nota: str(data.nota, 200) || null, reviewedAt: ServerValue.TIMESTAMP, reviewedBy: adminUid });
+  // Si el admin cambió el pueblo en el padrón, el conductor lo toma al revisar su cuenta.
+  const pad = (await db.ref(`padron/${d.dni}`).get()).val();
+  await ref.update({ status: next, nota: str(data.nota, 200) || null, reviewedAt: ServerValue.TIMESTAMP, reviewedBy: adminUid, ...(pad && pad.townId ? { townId: pad.townId } : {}) });
   if (next !== 'aprobado') await db.ref(`presence/${uid}`).remove();
   return { status: next };
 };
@@ -376,7 +382,10 @@ async function approvedDriver(uid) {
 
 H.driverAccept = async ({ uid, data }) => {
   const d = await approvedDriver(uid);
+  if (!d.townId) fail('failed-precondition', 'Tu cuenta no tiene pueblo asignado. Contactá a la administración.');
   const id = key(data.orderId);
+  const peek = (await db.ref(`orders/${id}`).get()).val();
+  if (peek && peek.townId !== d.townId) fail('permission-denied', 'Ese pedido es de otro pueblo.');
   const lock = await db.ref(`driverActive/${uid}`).transaction(cur => cur ? undefined : id);
   if (!lock.committed) fail('failed-precondition', 'Terminá tu pedido actual antes de tomar otro.');
   const res = await db.ref(`orders/${id}`).transaction(o => {

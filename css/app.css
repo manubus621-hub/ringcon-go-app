@@ -195,3 +195,7 @@ h1,h2,h3,.logo{font-family:var(--display);letter-spacing:-.03em}
 .sug button{text-align:left;padding:12px 14px;border-radius:14px;font-size:14px;background:var(--soft);border:1px solid var(--line)}
 .sug button:hover{background:#fff;border-color:var(--brand)}
 .saved{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+
+/* Selector de pueblo (home) */
+.town-pick{display:flex;align-items:center;gap:10px;margin:0 0 18px;font-size:13px;font-weight:600;color:var(--mute)}
+.town-pick select{padding:10px 14px;border-radius:12px;border:1.5px solid var(--line);background:var(--soft);font:inherit;font-weight:700;color:var(--ink);max-width:100%}

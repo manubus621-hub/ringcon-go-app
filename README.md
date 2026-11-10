@@ -1,6 +1,7 @@
 # Ringcon Go · App de clientes y API
 
-Delivery para Rincón de los Sauces (Neuquén). HTML, CSS y JavaScript puro, con Firebase en el plan
+Delivery para pueblos aislados que no tienen una app de delivery propia (hoy, Rincón de los Sauces, Neuquén).
+Una sola app para todos los pueblos. HTML, CSS y JavaScript puro, con Firebase en el plan
 gratuito (Auth y Realtime Database), una API en funciones de Vercel y cobros con Mercado Pago.
 
 La app de conductores y el panel de administración están en
@@ -21,6 +22,30 @@ La app de conductores y el panel de administración están en
   El padrón, los conductores y las fotos de DNI son visibles solo para administradores.
 - **Conductores verificados:** DNI en el padrón, apellido y fecha de nacimiento, fotos del DNI y
   selfie, y aprobación manual. Además hay límite de intentos por DNI y licencia vigente para ponerse en línea.
+
+## Pueblos
+
+La app es una sola y los pueblos son datos, no código. Cada pueblo está en `towns/{id}`:
+
+```json
+"towns": {
+  "rincon": { "name": "Rincón de los Sauces", "lat": -37.3906, "lon": -68.9298, "km": 15, "order": 0 }
+}
+```
+
+- `lat`, `lon`: centro del pueblo. `km`: radio de entrega desde el centro.
+- Cada **local** tiene `townId` (qué pueblo atiende) y la API calcula la zona de entrega con ese pueblo.
+- Cada **conductor** tiene `townId` (del padrón) y solo ve y toma pedidos de su pueblo.
+- El cliente elige su pueblo al entrar y puede cambiarlo arriba en la pantalla principal.
+- Para sumar un pueblo: Realtime Database → agregá `towns/{id}` (el `id` solo con minúsculas, números y guiones),
+  después cargá o editá locales y padrón eligiendo ese pueblo en el panel admin.
+
+**Migración de una base que ya tenía datos** (una sola vez, antes de publicar esta versión):
+1. `towns/rincon` con los datos de arriba (ya está en `firebase/seed/catalog.json`).
+2. Cada local en `catalog/{id}` necesita `townId: "rincon"`. Hasta tenerlo, no aparece en la app.
+3. Cada DNI del padrón necesita `townId: "rincon"`. Los conductores ya registrados también: copiá el mismo valor
+   en `drivers/{uid}/townId`.
+4. Publicá las reglas de nuevo (`firebase deploy --only database`).
 
 ## Puesta en marcha (una sola vez)
 
@@ -45,7 +70,8 @@ La app de conductores y el panel de administración están en
    - En **Webhooks**, configurá `https://ringcon-go.vercel.app/api/mp-webhook` con el evento *Pagos*
      y copiá la clave secreta en `MP_WEBHOOK_SECRET`.
 4. **Reglas de la base:** `cd firebase && firebase deploy --only database`.
-5. **Catálogo:** `firebase database:set /catalog` con el contenido de `catalog` en `firebase/seed/catalog.json`,
+5. **Pueblos y catálogo:** `firebase database:set /towns` con el contenido de `towns`, y `firebase database:set /catalog`
+   con el de `catalog`, ambos en `firebase/seed/catalog.json`.
    o Realtime Database → ⋮ → Importar JSON en la raíz. Los precios están en pesos.
 6. **Usuario administrador:** en Authentication creá un usuario con email y contraseña, copiá su UID
    y en la base agregá `admins/<UID> = true`. Con ese usuario entrás a `admin.html` de la app de conductores.

@@ -8,8 +8,11 @@ const CURRENCY = '$';
 const DRIVER_TTL = 120000;
 const TIPS = [0, 1000, 2000, 3000];
 const SERVICE_RATE = 0.15;
-// Caja de búsqueda de direcciones: Rincón de los Sauces y alrededores.
-const VIEWBOX = '-69.05,-37.30,-68.80,-37.48';
+// Caja de búsqueda de direcciones: alrededores del pueblo elegido (sale de su centro y radio).
+const viewbox = t => {
+  const dLat = (t.km * 1.3) / 111, dLon = (t.km * 1.3) / (111 * Math.cos(t.lat * Math.PI / 180));
+  return `${(t.lon - dLon).toFixed(4)},${(t.lat + dLat).toFixed(4)},${(t.lon + dLon).toFixed(4)},${(t.lat - dLat).toFixed(4)}`;
+};
 
 if (FIREBASE.apiKey === 'COMPLETAR') {
   document.getElementById('app').innerHTML = '<main class="err-page"><div><h1>Falta configurar</h1><p>Completá js/config.js con los datos de tu proyecto de Firebase y tu Public Key de Mercado Pago.</p></div></main>';
@@ -55,12 +58,16 @@ const state = {
   view: 'home', bizId: null, trackId: null, cat: 'Todo', q: '',
   cart: { bizId: null, items: {} },
   tip: 1000, method: 'efectivo', card: false, notes: '', returnToCheckout: false,
-  catalog: null, orders: {}, presence: {}
+  catalog: null, towns: {}, town: store.get('rcg:town', null), orders: {}, presence: {}
 };
 const prev = {}, orderSubs = {};
 let closeT, placing = false, geo = null, sugT, sugN = [], brick = null, unsubs = [];
 
-const BUSINESSES = () => sorted(state.catalog).filter(b => b.open !== false).map(b => ({ ...b, menu: sorted(b.menu).filter(m => m.available !== false) }));
+const BUSINESSES = () => sorted(state.catalog).filter(b => b.open !== false && b.townId === state.town).map(b => ({ ...b, menu: sorted(b.menu).filter(m => m.available !== false) }));
+const townList = () => sorted(state.towns);
+const townOptions = sel => townList().length
+  ? townList().map(t => `<option value="${esc(t.id)}" ${t.id === sel ? 'selected' : ''}>${esc(t.name)}</option>`).join('')
+  : '<option value="">Cargando pueblos…</option>';
 const biz = id => BUSINESSES().find(b => b.id === id);
 const cartCount = () => Object.values(state.cart.items).reduce((s, q) => s + q, 0);
 function cartLines() {
@@ -130,9 +137,10 @@ function renderLogin() {
     <div class="login-box">
       <svg class="ico" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#ff3b1f"/><g transform="translate(0 -12)" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round"><path d="M200 220v-30a56 56 0 0 1 112 0v30" stroke-width="22"/><path d="M160 214H352L384 396H128Z" fill="#fff" stroke-width="36"/></g></svg>
       <h1>Pedí ya.</h1>
-      <p class="sub">Delivery en Rincón de los Sauces. Entrá con tu nombre y pedí en segundos.</p>
+      <p class="sub">Delivery en tu pueblo. Entrá con tu nombre y pedí en segundos.</p>
       <form id="login-form">
         <label class="field">Tu nombre<input id="l-name" autocomplete="name" placeholder="Ej: Ana" required minlength="2" maxlength="40"></label>
+        <label class="field">¿Dónde pedís?<select id="l-town" required>${townOptions(state.town)}</select></label>
         <label class="field">Teléfono <i>(para que el conductor te encuentre)</i><input id="l-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej: 299 123 4567" maxlength="20"></label>
         <button class="btn primary big" id="l-btn">Entrar y pedir</button>
       </form>
@@ -153,6 +161,7 @@ function renderHome() {
     <section class="hero">
       <p class="hello">Hola, <b>${esc(n.split(' ')[0])}</b> 👋</p>
       <h1>¿Qué se te antoja hoy?</h1>
+      <label class="town-pick"><span>Pedís en</span><select id="town" aria-label="Pueblo">${townOptions(state.town)}</select></label>
       <div class="search"><input id="q" type="search" placeholder="Buscá comida o locales" value="${esc(state.q)}" aria-label="Buscar"></div>
       <p class="livep"><i class="dot off"></i><span id="drv-count"></span></p>
     </section>
@@ -290,7 +299,9 @@ function onAddrInput(e) {
   if (q.length < 4) { box.innerHTML = ''; return; }
   sugT = setTimeout(async () => {
     try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=es&countrycodes=ar&bounded=1&viewbox=${VIEWBOX}&q=${encodeURIComponent(q)}`);
+      const T = state.towns[state.town];
+      const area = T ? `&bounded=1&viewbox=${viewbox(T)}` : '';
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=es&countrycodes=ar${area}&q=${encodeURIComponent(q)}`);
       sugN = await r.json();
       const b = $('#a-sug'); if (b) b.innerHTML = sugN.map((s, i) => `<button type="button" data-act="sug" data-i="${i}">📍 ${esc(short(s.display_name))}</button>`).join('');
     } catch { const b = $('#a-sug'); if (b) b.innerHTML = ''; }
@@ -516,8 +527,10 @@ document.addEventListener('input', e => { if (e.target.id === 'q') { state.q = e
 document.addEventListener('submit', async e => {
   if (e.target.id !== 'login-form') return;
   e.preventDefault();
-  const name = $('#l-name').value.trim().replace(/\s+/g, ' '), phone = $('#l-phone').value.trim();
+  const name = $('#l-name').value.trim().replace(/\s+/g, ' '), phone = $('#l-phone').value.trim(), town = $('#l-town').value;
   if (name.length < 2) return;
+  if (!state.towns[town]) { toast('Elegí tu pueblo', 'err'); return; }
+  state.town = town; store.set('rcg:town', town);
   const btn = $('#l-btn'); btn.disabled = true;
   try {
     const cred = auth.currentUser || (await signInAnonymously(auth)).user;
@@ -549,6 +562,25 @@ function stopWatching() {
 
 onValue(ref(db, 'catalog'), s => { state.catalog = s.val() || {}; if (state.view === 'home') drawBiz(); else if (state.view === 'biz') renderBiz(); },
   () => { state.catalog = {}; drawBiz(); });
+
+// Pueblos disponibles. Si el pueblo guardado ya no existe, se usa el primero.
+onValue(ref(db, 'towns'), s => {
+  state.towns = s.val() || {};
+  if (!state.towns[state.town]) { state.town = townList()[0]?.id || null; store.set('rcg:town', state.town); }
+  if (state.ready) render();
+}, () => {});
+
+// Cambiar de pueblo: el carrito es de un local, así que si no es de ese pueblo se vacía (con confirmación).
+document.addEventListener('change', e => {
+  if (e.target.id !== 'town') return;
+  const id = e.target.value, cart = (state.catalog || {})[state.cart.bizId];
+  if (cartCount() && cart && cart.townId !== id) {
+    if (!confirm('Tu carrito tiene productos de otro pueblo. ¿Vaciarlo?')) { e.target.value = state.town; return; }
+    state.cart = { bizId: null, items: {} };
+  }
+  state.town = id; store.set('rcg:town', id);
+  drawBiz(); renderDock();
+});
 
 onAuthStateChanged(auth, async u => {
   stopWatching();
