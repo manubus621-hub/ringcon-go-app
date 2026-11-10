@@ -17,8 +17,10 @@ puede subir una actualización.
 
 1. En GitHub, uní la rama `claude/ringongo-delivery-mq05ff` a `main` en `ringcon-go-app` y en
    `ringcon-go-conductores`. Vercel publica solo cada repo.
-2. Firebase Console → Realtime Database → **Reglas**: pegá el contenido de `firebase/database.rules.json` y tocá
-   **Publicar**. Sin esto, el panel del local y la pestaña Pueblos no pueden leer ni guardar.
+2. **Después** de que Vercel termine de publicar: Firebase Console → Realtime Database → **Reglas**: pegá el
+   contenido de `firebase/database.rules.json` y tocá **Publicar**. Sin esto, el panel del local y la pestaña
+   Pueblos no pueden leer ni guardar. El orden importa: si publicás las reglas antes que el código, los conductores
+   con la versión anterior dejan de ver pedidos hasta que se actualice.
 3. Panel admin (`ringcon-go-conductores.vercel.app/admin.html`) → **Pueblos**: agregá Puerto Iguazú
    (`-25.5978, -54.5736`, 10 km). Después, en **Locales** y **Padrón**, elegí el pueblo en cada uno que diga
    "Falta elegir pueblo".
@@ -131,7 +133,9 @@ el sistema la anota como saldo a su favor (paso 6).
 3. Panel admin → **Locales** → editar el local → **Cobro con tarjeta** → **Generar enlace para conectar** →
    **Enviar por WhatsApp** al dueño.
 4. El dueño abre el enlace con la sesión de **su** Mercado Pago y toca **Autorizar**. Ve "¡Listo!" y en el admin
-   el estado pasa a **Conectado**. El enlace sirve 7 días y una sola vez.
+   el estado pasa a **Conectado**. El enlace sirve 2 días y una sola vez.
+5. En el admin aparece **Cuenta que cobra** con el usuario de Mercado Pago que autorizó. Confirmá con el dueño que
+   es la suya: ahí van a entrar los pagos de ese local. Si no coincide, tocá **Desconectar** y mandá otro enlace.
 
 Desde que activás el paso 2, solo ofrecen tarjeta los locales conectados; el resto queda en efectivo.
 
@@ -159,6 +163,44 @@ Panel admin → **Liquidaciones**. Por cada conductor muestra:
 
 Hacé la transferencia y tocá **Marcar liquidado**. El conductor ve su saldo sin liquidar en su app.
 
+## 7. Para miles de usuarios: planes y seguridad
+
+El código ya está preparado para volumen: cada app pide solo los datos de su pueblo, los clientes no reciben el
+tráfico de los conductores y lo que crece sin techo se pide de a tramos. Lo que sigue no es código y **sin esto la
+app deja de aceptar gente**:
+
+1. **Firebase, plan Blaze.** El plan gratuito (Spark) admite **100 conexiones simultáneas** a la base, 1 GB
+   guardado y 10 GB de descarga por mes. Cada app abierta (un cliente siguiendo su pedido, un conductor en línea,
+   el panel de un local) ocupa una conexión: la persona número 101 no puede conectarse. Firebase Console →
+   ⚙ → **Uso y facturación** → cambiar a **Blaze** (pago por uso). Ponele un **presupuesto con alertas** en el mismo
+   lugar para enterarte si el gasto sube.
+2. **Vercel Pro.** El plan Hobby es para uso no comercial y tiene topes de uso de funciones. Con ventas reales,
+   pasá el proyecto de `ringcon-go-app` a Pro.
+3. **Copias de seguridad.** Con Blaze: Realtime Database → **Copias de seguridad** → activá las automáticas diarias.
+4. **Cuentas con acceso total.** La cuenta de Google dueña de Firebase, la de Vercel, la de GitHub y la de Mercado
+   Pago: contraseña única y verificación en dos pasos en las cuatro. El usuario administrador del panel, con una
+   contraseña larga que no uses en otro lado. Quien entra a cualquiera de esas cuentas maneja todo.
+5. **Keystores.** Guardá los dos `signing.keystore` y sus claves fuera del teléfono y fuera del repo.
+
+Qué protege ya el sistema:
+- El navegador no decide precios, montos, pueblo ni estados: todo eso lo calcula y valida el servidor.
+- Cada rol lee solo lo suyo: el cliente sus pedidos, el conductor el tablero de **su** pueblo (sin teléfono del
+  cliente hasta tomar el pedido), el local sus pedidos sin teléfono ni dirección. DNI y fotos, solo el admin.
+- Límites de uso por cuenta y por IP en lo que se puede abusar en masa (pedidos, registro de conductores, pagos).
+- Las credenciales de Mercado Pago de cada local y los tokens de avisos no se pueden leer desde ningún navegador.
+- Los avisos de pago de Mercado Pago se verifican con firma y consultando el pago real.
+
+Qué queda abierto (ningún sistema es imposible de atacar):
+- **Pedidos falsos en efectivo.** Para pedir alcanza con un nombre. Los límites frenan un ataque masivo y el local
+  puede rechazar, pero una persona puede hacer algunos pedidos falsos. Si pasa, el paso siguiente es exigir
+  teléfono verificado para pagar en efectivo.
+- **App Check** (que Firebase solo atienda a tus apps y no a programas) no está programado. Es el refuerzo a sumar
+  si aparecen bots.
+- **Dependencia del servidor.** `firebase-admin` 12 arrastra un aviso de seguridad moderado en una librería interna
+  (`uuid`) que esta app no usa con datos de usuarios. Se resuelve pasando a la versión 14, que conviene hacer con
+  una prueba real de por medio.
+- **La zona de entrega** no se controla cuando el cliente escribe la dirección a mano sin elegir una sugerencia.
+
 ## Qué no se pudo probar desde el desarrollo
 
 La lógica está probada de punta a punta con Firebase y Mercado Pago simulados. No se probó contra los servicios
@@ -166,3 +208,5 @@ reales, así que la primera vez verificá:
 - **Reglas de la base**: si Firebase rechaza publicarlas, no cambia nada y avisa el motivo.
 - **Mercado Pago**: la compra de prueba del paso 5.
 - **Avisos push**: poné un conductor en línea, cerrá la app y hacé un pedido de prueba.
+- **Carga real**: no se hizo una prueba con miles de conexiones contra Firebase. Lo de volumen está resuelto por
+  diseño (cuánto pide cada app) y verificado en pruebas, no medido en producción.

@@ -22,6 +22,9 @@ La app de conductores, el panel de cada local y el panel de administración est�
 - **Reglas de base de datos por rol:** cada cliente lee solo sus pedidos. Los conductores aprobados
   ven el tablero `openOrders`, sin teléfono ni datos del cliente, y el pedido completo solo cuando lo toman.
   El padrón, los conductores y las fotos de DNI son visibles solo para administradores.
+- **Cada conductor ve solo su pueblo.** El tablero es `openOrders/{pueblo}` y las reglas no le dejan leer otro.
+  Los clientes ven cuántos conductores hay en línea por `online/{pueblo}`; los latidos (`presence/`) son solo del servidor.
+- **Límites de uso** por cuenta y, en lo que se puede abusar en masa, también por IP (se guarda una huella, no la IP).
 - **Conductores verificados:** DNI en el padrón, apellido y fecha de nacimiento, fotos del DNI y
   selfie, y aprobación manual. Además hay límite de intentos por DNI y licencia vigente para ponerse en línea.
 
