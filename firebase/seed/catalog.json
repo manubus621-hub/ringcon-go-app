@@ -6,6 +6,13 @@
       "lon": -68.9298,
       "km": 15,
       "order": 0
+    },
+    "puerto-iguazu": {
+      "name": "Puerto Iguazú",
+      "lat": -25.5978,
+      "lon": -54.5736,
+      "km": 10,
+      "order": 1
     }
   },
   "catalog": {
