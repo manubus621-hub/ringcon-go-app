@@ -4,7 +4,9 @@ Delivery para pueblos aislados que no tienen una app de delivery propia (hoy, Ri
 Una sola app para todos los pueblos. HTML, CSS y JavaScript puro, con Firebase en el plan
 gratuito (Auth y Realtime Database), una API en funciones de Vercel y cobros con Mercado Pago.
 
-La app de conductores y el panel de administración están en
+**Para dejarla operando, seguí [PUESTA-EN-MARCHA.md](PUESTA-EN-MARCHA.md).**
+
+La app de conductores, el panel de cada local y el panel de administración están en
 [ringcon-go-conductores](https://github.com/manubus621-hub/ringcon-go-conductores) y usan la API de este repo.
 
 ## Cómo está armada la seguridad
@@ -66,6 +68,9 @@ La app es una sola y los pueblos son datos, no código. Hoy están Rincón de lo
    | `MP_ACCESS_TOKEN` | Access Token de Mercado Pago (de la misma app que la Public Key) |
    | `MP_WEBHOOK_SECRET` | Clave secreta de webhooks de Mercado Pago |
    | `PUBLIC_URL` | `https://ringcon-go.vercel.app` |
+   | `MP_CLIENT_ID`, `MP_CLIENT_SECRET` | (opcional) Client ID y Client Secret de la aplicación de Mercado Pago. Activan el cobro dividido por local |
+   | `MP_SPLIT_PUBLIC_KEY` | (opcional) `vendedor` si el formulario de tarjeta tiene que usar la Public Key del local |
+   | `OPS_URL` | (opcional) dominio de la app de conductores, para los avisos push. Por defecto `https://ringcon-go-conductores.vercel.app` |
 
 3. **Mercado Pago** → Tus integraciones → tu aplicación:
    - La **Public Key** va en `js/config.js` (`MP_PUBLIC_KEY`).
@@ -90,6 +95,7 @@ js/app.js             Lógica de la app
 sw.js, manifest.webmanifest, icon.svg   PWA / APK
 api/call.js           POST /api/call {fn, data}: pedidos, pagos y conductores
 api/mp-webhook.js     Notificaciones de Mercado Pago
+api/mp-oauth.js       Vuelta de Mercado Pago cuando un local autoriza el cobro en su cuenta
 server/backend.js     Lógica del backend (Firebase Admin)
 firebase/
   database.rules.json   Reglas de Realtime Database
@@ -98,6 +104,23 @@ firebase/
 
 Estados de un pedido: `pago_pendiente` → `nuevo` → `aceptado` → `en_local` → `recogido` → `entregado`
 (o `cancelado`). Los pedidos con tarjeta que no se pagan en 30 minutos se cancelan solos.
+
+## Local, pagos y avisos
+
+- **Panel del local.** Si un local tiene cuentas de acceso (`bizUsers/`), cada pedido nace con `kitchen: pendiente`
+  y lo tiene que aceptar: `pendiente` → `aceptado` → `preparando` → `listo` (o `rechazado`). Los conductores lo ven
+  recién desde `aceptado`. Sin respuesta en 10 minutos se cancela solo (`sin_respuesta`) y se devuelve el pago.
+  El local lee `bizOrders/{local}`, una copia del pedido sin teléfono ni dirección del cliente.
+- **Cobro dividido.** Con `MP_CLIENT_ID` y `MP_CLIENT_SECRET`, cada local autoriza una vez por OAuth y sus
+  credenciales quedan en `mpSellers/` (solo servidor). El pago se crea con el token del local y
+  `application_fee` = comisión + envío + propina, que Mercado Pago acredita a la plataforma. Solo ofrecen tarjeta
+  los locales conectados. Sin esas variables todo sigue como antes: cobra la cuenta de la plataforma.
+- **Saldo de conductores.** Mercado Pago divide un pago solo entre dos cuentas, así que la parte del conductor en
+  pedidos con tarjeta queda en `settlements/` como `fromPlatform`, contra lo que rinde por efectivo
+  (`toPlatform`). El admin liquida desde la pestaña Liquidaciones (`payouts/`).
+- **Avisos push.** Con `VAPID_KEY` en `js/config.js`, el servidor avisa por Firebase Cloud Messaging al local, a
+  los conductores en línea del pueblo y al cliente según el momento del pedido. Los tokens quedan en `pushTokens/`
+  (solo servidor).
 
 > El plan Hobby de Vercel es para uso no comercial. Sirve para lanzar y probar; cuando la app
 > empiece a facturar, conviene pasar a Vercel Pro.
