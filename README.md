@@ -25,27 +25,29 @@ La app de conductores y el panel de administración están en
 
 ## Pueblos
 
-La app es una sola y los pueblos son datos, no código. Cada pueblo está en `towns/{id}`:
+La app es una sola y los pueblos son datos, no código. Hoy están Rincón de los Sauces (Neuquén) y Puerto Iguazú (Misiones).
 
-```json
-"towns": {
-  "rincon": { "name": "Rincón de los Sauces", "lat": -37.3906, "lon": -68.9298, "km": 15, "order": 0 }
-}
-```
+- Cada pueblo tiene nombre, centro (latitud y longitud) y radio de entrega en km. Se cargan y editan en el panel
+  admin, pestaña **Pueblos** (quedan en `towns/{id}`).
+- Cada **local** pertenece a un pueblo. El pedido toma el pueblo del local y la API valida la dirección con el
+  radio de ese pueblo; el navegador no decide el pueblo.
+- Cada **conductor** tiene el pueblo que figura en el padrón y solo ve y toma pedidos de ese pueblo. La API lo
+  vuelve a verificar al aceptar.
+- El cliente elige su pueblo al entrar y puede cambiarlo arriba en la pantalla principal. La elección queda
+  guardada en su teléfono.
+- El radio es un círculo. En un pueblo de frontera (Puerto Iguazú) el círculo también cubre parte del país vecino:
+  la búsqueda de direcciones solo sugiere direcciones de Argentina, pero "Usar mi ubicación actual" no distingue país.
+  Una dirección escrita a mano, sin elegir una sugerencia, no tiene coordenadas y no pasa por el control de zona.
 
-- `lat`, `lon`: centro del pueblo. `km`: radio de entrega desde el centro.
-- Cada **local** tiene `townId` (qué pueblo atiende) y la API calcula la zona de entrega con ese pueblo.
-- Cada **conductor** tiene `townId` (del padrón) y solo ve y toma pedidos de su pueblo.
-- El cliente elige su pueblo al entrar y puede cambiarlo arriba en la pantalla principal.
-- Para sumar un pueblo: Realtime Database → agregá `towns/{id}` (el `id` solo con minúsculas, números y guiones),
-  después cargá o editá locales y padrón eligiendo ese pueblo en el panel admin.
-
-**Migración de una base que ya tenía datos** (una sola vez, antes de publicar esta versión):
-1. `towns/rincon` con los datos de arriba (ya está en `firebase/seed/catalog.json`).
-2. Cada local en `catalog/{id}` necesita `townId: "rincon"`. Hasta tenerlo, no aparece en la app.
-3. Cada DNI del padrón necesita `townId: "rincon"`. Los conductores ya registrados también: copiá el mismo valor
-   en `drivers/{uid}/townId`.
-4. Publicá las reglas de nuevo (`firebase deploy --only database`).
+**Pasar a varios pueblos una base que ya tenía datos** (una sola vez, en un momento sin pedidos en curso):
+1. Publicá las reglas nuevas: `cd firebase && firebase deploy --only database`, o pegá `firebase/database.rules.json`
+   en Firebase Console → Realtime Database → Reglas → Publicar.
+2. Publicá esta versión de la API y de las dos apps.
+3. Panel admin → **Pueblos**: agregá Rincón de los Sauces (`-37.3906, -68.9298`, 15 km) y
+   Puerto Iguazú (`-25.5978, -54.5736`, 10 km).
+4. Panel admin → **Locales**: los locales anteriores aparecen con el aviso "Falta elegir pueblo". Editá cada uno,
+   elegí el pueblo y guardá. Hasta entonces no se muestran a los clientes ni se pueden modificar.
+5. Panel admin → **Padrón**: lo mismo con cada DNI. Si el conductor ya tenía cuenta, al guardar se actualiza sola.
 
 ## Puesta en marcha (una sola vez)
 
@@ -70,9 +72,9 @@ La app es una sola y los pueblos son datos, no código. Cada pueblo está en `to
    - En **Webhooks**, configurá `https://ringcon-go.vercel.app/api/mp-webhook` con el evento *Pagos*
      y copiá la clave secreta en `MP_WEBHOOK_SECRET`.
 4. **Reglas de la base:** `cd firebase && firebase deploy --only database`.
-5. **Pueblos y catálogo:** `firebase database:set /towns` con el contenido de `towns`, y `firebase database:set /catalog`
-   con el de `catalog`, ambos en `firebase/seed/catalog.json`.
-   o Realtime Database → ⋮ → Importar JSON en la raíz. Los precios están en pesos.
+5. **Pueblos y catálogo de ejemplo** (solo en una base vacía): Realtime Database → ⋮ → Importar JSON en la raíz con
+   `firebase/seed/catalog.json`. Importar en la raíz reemplaza todo lo que haya: en una base con datos no lo uses y
+   cargá los pueblos y locales desde el panel admin. Los precios están en pesos.
 6. **Usuario administrador:** en Authentication creá un usuario con email y contraseña, copiá su UID
    y en la base agregá `admins/<UID> = true`. Con ese usuario entrás a `admin.html` de la app de conductores.
 

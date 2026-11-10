@@ -372,6 +372,20 @@ H.reviewDriver = async ({ uid: adminUid, data }) => {
   return { status: next };
 };
 
+// El padrón manda: al guardarlo en el panel, el pueblo y la licencia pasan a la cuenta del conductor (si ya tiene una).
+H.syncDriver = async ({ uid, data }) => {
+  if (!(await isAdmin(uid))) fail('permission-denied', 'Solo administradores.');
+  const dni = cleanDni(data.dni);
+  if (!dni) fail('invalid-argument', 'DNI inválido.');
+  const p = (await db.ref(`padron/${dni}`).get()).val();
+  if (!p || !p.uid) return { synced: false };
+  const ref = db.ref(`drivers/${p.uid}`);
+  if (!(await ref.get()).val()) return { synced: false };
+  await ref.update({ licenciaVence: p.licenciaVence, ...(p.townId ? { townId: p.townId } : {}) });
+  if (!(p.licenciaVence > Date.now())) await db.ref(`presence/${p.uid}`).remove();
+  return { synced: true };
+};
+
 /* conductores: operativa */
 async function approvedDriver(uid) {
   const d = (await db.ref(`drivers/${uid}`).get()).val();

@@ -33,7 +33,8 @@ h1,h2,h3,.logo{font-family:var(--display);letter-spacing:-.03em}
 .field{display:block;margin-bottom:16px;font-size:13px;font-weight:600;color:var(--mute);text-align:left}
 .field i{font-weight:400;font-style:normal}
 .field input{display:block;width:100%;margin-top:6px;padding:16px 18px;border-radius:16px;border:1.5px solid var(--line);background:var(--soft);font-size:16px;outline:0;transition:all .2s}
-.field input:focus{border-color:var(--brand);background:#fff;box-shadow:0 0 0 4px rgba(255,59,31,.1)}
+.field select{display:block;width:100%;margin-top:6px;padding:16px 18px;border-radius:16px;border:1.5px solid var(--line);background:var(--soft);font:inherit;font-size:16px;color:inherit;outline:0;transition:all .2s}
+.field input:focus,.field select:focus{border-color:var(--brand);background:#fff;box-shadow:0 0 0 4px rgba(255,59,31,.1)}
 
 /* header */
 .top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--line)}
