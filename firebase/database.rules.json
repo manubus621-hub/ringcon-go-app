@@ -30,6 +30,8 @@
         "name": { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 60" },
         "fee": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
         "open": { ".validate": "newData.isBoolean()" },
+        "panel": { ".validate": "newData.isBoolean()" },
+        "mp": { ".validate": "newData.isBoolean()" },
         "menu": {
           "$item": {
             ".validate": "$item.matches(/^[a-z0-9-]{1,40}$/) && newData.hasChildren(['name', 'price'])",
@@ -64,6 +66,20 @@
       }
     },
 
+    "bizUsers": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": { ".read": "auth != null && auth.uid === $uid" }
+    },
+
+    "bizStaff": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true"
+    },
+
+    "bizOrders": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$biz": { ".read": "auth != null && root.child('bizUsers').child(auth.uid).val() === $biz" }
+    },
+
     "openOrders": {
       ".read": "auth != null && (root.child('drivers').child(auth.uid).child('status').val() === 'aprobado' || root.child('admins').child(auth.uid).val() === true)"
     },
@@ -89,6 +105,11 @@
     },
 
     "settlements": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": { ".read": "auth != null && auth.uid === $uid" }
+    },
+
+    "payouts": {
       ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$uid": { ".read": "auth != null && auth.uid === $uid" }
     },

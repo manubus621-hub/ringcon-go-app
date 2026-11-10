@@ -35,7 +35,7 @@ const call = name => async data => {
   if (!r.ok) throw new Error(j.error || 'Algo salió mal. Probá de nuevo.');
   return j.data;
 };
-const api = { getConfig: call('getConfig'), createOrder: call('createOrder'), payOrder: call('payOrder'), cancelOrder: call('cancelOrder') };
+const api = { getConfig: call('getConfig'), createOrder: call('createOrder'), payOrder: call('payOrder'), cancelOrder: call('cancelOrder'), checkOrder: call('checkOrder') };
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -57,7 +57,7 @@ const state = {
   saved: store.get('rcg:addresses', []),
   view: 'home', bizId: null, trackId: null, cat: 'Todo', q: '',
   cart: { bizId: null, items: {} },
-  tip: 1000, method: 'efectivo', card: false, notes: '', returnToCheckout: false,
+  tip: 1000, method: 'efectivo', card: false, split: false, notes: '', returnToCheckout: false,
   catalog: null, towns: {}, town: store.get('rcg:town', null), orders: {}, presence: {}
 };
 const prev = {}, orderSubs = {};
@@ -69,6 +69,8 @@ const townOptions = sel => townList().length
   ? townList().map(t => `<option value="${esc(t.id)}" ${t.id === sel ? 'selected' : ''}>${esc(t.name)}</option>`).join('')
   : '<option value="">Cargando pueblos…</option>';
 const biz = id => BUSINESSES().find(b => b.id === id);
+// Con cobro por local, la tarjeta solo está en los locales que conectaron su Mercado Pago.
+const cardOk = () => { const b = (state.catalog || {})[state.cart.bizId]; return state.card && (!state.split || !!(b && b.mp === true)); };
 const cartCount = () => Object.values(state.cart.items).reduce((s, q) => s + q, 0);
 function cartLines() {
   const b = biz(state.cart.bizId); if (!b) return [];
@@ -98,17 +100,24 @@ const activeOrder = () => mine().find(o => !['entregado', 'cancelado'].includes(
 const onlineDrivers = () => Object.values(state.presence).filter(d => d.online && Date.now() - (d.lastSeen || 0) < DRIVER_TTL);
 
 function statusInfo(o) {
-  const d = o.driver ? o.driver.name.split(' ')[0] : 'Tu conductor';
+  const d = o.driver ? o.driver.name.split(' ')[0] : 'Tu conductor', k = o.kitchen;
+  const kitchen = { aceptado: 'El local aceptó tu pedido', preparando: 'El local lo está preparando', listo: 'Ya está listo en el local' }[k] || '';
+  const refunded = o.payment.status === 'refunded' ? 'Te devolvimos el dinero a la tarjeta' : '';
   switch (o.status) {
     case 'pago_pendiente': return o.payment.status === 'in_process'
       ? { t: 'Mercado Pago está revisando tu pago', s: 'Te avisamos apenas se acredite', i: 0 }
       : { t: 'Falta pagar tu pedido', s: 'Completá el pago para enviarlo a los conductores', i: 0 };
-    case 'nuevo': return { t: 'Buscando conductor…', s: 'Tu pedido ya les llegó a los conductores', i: 0 };
-    case 'aceptado': return { t: `${d} va por tu pedido`, s: 'Va camino al local', i: 1 };
-    case 'en_local': return { t: `${d} está en el local`, s: 'Retirando tu pedido', i: 1 };
+    case 'nuevo': return k === 'pendiente'
+      ? { t: 'Esperando que el local confirme…', s: `Le avisamos a ${o.business.name}`, i: 0 }
+      : { t: 'Buscando conductor…', s: kitchen || 'Tu pedido ya les llegó a los conductores', i: 0 };
+    case 'aceptado': return { t: `${d} va por tu pedido`, s: kitchen || 'Va camino al local', i: 1 };
+    case 'en_local': return { t: `${d} está en el local`, s: k === 'listo' ? 'Retirando tu pedido' : kitchen || 'Retirando tu pedido', i: 1 };
     case 'recogido': return { t: '¡Tu pedido va en camino!', s: `${d} ya lo tiene`, i: 2 };
     case 'entregado': return { t: '¡Entregado! Buen provecho', s: 'Gracias por pedir con Ringcon Go', i: 3 };
-    default: return { t: 'Pedido cancelado', s: o.payment.status === 'refunded' ? 'Te devolvimos el dinero a la tarjeta' : '', i: -1 };
+    default:
+      if (o.cancelledBy === 'local') return { t: 'El local no pudo tomar tu pedido', s: [o.cancelNote, refunded].filter(Boolean).join(' · '), i: -1 };
+      if (k === 'sin_respuesta') return { t: 'El local no confirmó a tiempo', s: refunded || 'Cancelamos tu pedido. No se te cobró nada.', i: -1 };
+      return { t: 'Pedido cancelado', s: refunded, i: -1 };
   }
 }
 
@@ -230,7 +239,8 @@ function renderTrack() {
       const done = k < s.i || o.status === 'entregado', now = !done && k === s.i;
       return `<div class="step ${done ? 'done' : now ? 'now' : ''}"><i>${done ? '✓' : ''}</i><span>${l}</span></div>`;
     }).join('')}</div>`}
-    ${o.status === 'nuevo' ? `<p class="box livep"><i class="dot ${n ? '' : 'off'}"></i>${n ? `${n} conductor${n > 1 ? 'es' : ''} en línea ya ven tu pedido` : 'No hay conductores en línea ahora. Tu pedido queda en cola.'}</p>` : ''}
+    ${o.status === 'nuevo' && o.kitchen === 'pendiente' ? '<p class="box livep"><i class="dot"></i>El local tiene 10 minutos para confirmar. Si no responde, el pedido se cancela solo.</p>' : ''}
+    ${o.status === 'nuevo' && o.kitchen !== 'pendiente' ? `<p class="box livep"><i class="dot ${n ? '' : 'off'}"></i>${n ? `${n} conductor${n > 1 ? 'es' : ''} en línea ya ven tu pedido` : 'No hay conductores en línea ahora. Tu pedido queda en cola.'}</p>` : ''}
     ${o.driver ? `<div class="box drv"><div class="av">${esc(o.driver.name.trim()[0].toUpperCase())}</div><div><b>${esc(o.driver.name)}</b><small>${esc(o.driver.vehicle || 'Conductor')} · conductor verificado ✓</small></div>${o.driver.phone && o.status !== 'entregado' ? `<a class="icon-btn" href="tel:${esc(String(o.driver.phone).replace(/[^\d+]/g, ''))}" aria-label="Llamar">📞</a>` : ''}</div>` : ''}
     <div class="box">
       ${arr(o.items).map(i => `<div class="tot"><span>${i.qty}× ${esc(i.name)}</span><span>${money(i.price * i.qty)}</span></div>`).join('')}
@@ -241,7 +251,7 @@ function renderTrack() {
       ${payBadge(o)}
     </div>
     <div class="box"><small class="meta">Entrega en</small><b>${esc(o.address.text)}</b>${o.address.ref ? `<div class="meta">${esc(o.address.ref)}</div>` : ''}</div>
-    ${['pago_pendiente', 'nuevo'].includes(o.status) ? `<button class="btn ghost big" data-act="cancel" data-id="${esc(o.id)}">Cancelar pedido</button>` : ''}
+    ${['pago_pendiente', 'nuevo'].includes(o.status) && (!o.kitchen || o.kitchen === 'pendiente') ? `<button class="btn ghost big" data-act="cancel" data-id="${esc(o.id)}">Cancelar pedido</button>` : ''}
     ${['entregado', 'cancelado'].includes(o.status) ? '<button class="btn primary big" data-act="back">Hacer otro pedido</button>' : ''}
   </main>`;
 }
@@ -323,7 +333,7 @@ function openCheckout() {
     <div class="tips" id="co-tips">${TIPS.map(v => `<button class="pill" data-act="tip" data-v="${v}">${v ? money(v) : 'No'}</button>`).join('')}</div>
     <h3>¿Cómo pagás?</h3>
     <div class="methods" id="co-methods">
-      <button class="method" data-act="method" data-m="tarjeta" ${state.card ? '' : 'disabled'}>💳 Tarjeta<small>${state.card ? 'Débito o crédito' : 'Próximamente'}</small></button>
+      <button class="method" data-act="method" data-m="tarjeta" ${cardOk() ? '' : 'disabled'}>💳 Tarjeta<small></small></button>
       <button class="method" data-act="method" data-m="efectivo">💵 Efectivo<small>Pagás al recibir</small></button>
     </div>
     <div id="cash-form" class="hide">
@@ -343,6 +353,8 @@ function drawCo() {
   const lines = cartLines();
   if (!lines.length) { closeSheet(); renderDock(); return; }
   $('#co-items').innerHTML = lines.map(l => `<div class="line"><div class="tx"><b>${esc(l.name)}</b><div class="meta"><span>${money(l.price)}</span></div></div><div class="qty"><button data-act="co-dec" data-id="${esc(l.id)}" aria-label="Quitar uno">−</button><span>${l.qty}</span><button data-act="co-add" data-id="${esc(l.id)}" aria-label="Agregar uno">+</button></div></div>`).join('');
+  const canCard = cardOk();
+  if (!canCard && state.method === 'tarjeta') state.method = 'efectivo';
   const t = totals(), isCard = state.method === 'tarjeta';
   $('#co-totals').innerHTML = `
     <div class="tot"><span>Productos</span><span>${money(t.subtotal)}</span></div>
@@ -355,9 +367,9 @@ function drawCo() {
   $$('#co-tips .pill').forEach(p => p.classList.toggle('on', +p.dataset.v === state.tip));
   $$('#co-methods .method').forEach(m => m.classList.toggle('on', m.dataset.m === state.method));
   const cardBtn = $('#co-methods [data-m="tarjeta"]');
-  cardBtn.disabled = !state.card; cardBtn.querySelector('small').textContent = state.card ? 'Débito o crédito' : 'Próximamente';
+  cardBtn.disabled = !canCard; cardBtn.querySelector('small').textContent = canCard ? 'Débito o crédito' : state.card ? 'Este local todavía no la acepta' : 'Próximamente';
   $('#co-hint').textContent = isCard
-    ? 'En el siguiente paso cargás la tarjeta en el formulario seguro de Mercado Pago. El pedido sale a los conductores cuando el pago se acredita.'
+    ? 'En el siguiente paso cargás la tarjeta en el formulario seguro de Mercado Pago. El pedido sale cuando el pago se acredita.'
     : `Pagás ${money(t.total)} en efectivo al conductor cuando recibís tu pedido.`;
   $('#co-secure').textContent = isCard ? '🔒 Ringcon Go nunca ve ni guarda los datos de tu tarjeta' : '';
 }
@@ -392,7 +404,7 @@ async function placeOrder() {
     state.cart = { bizId: null, items: {} }; state.notes = '';
     watchOrder(res.orderId);
     hidePay();
-    if (isCard) openPaySheet(res.orderId, res.total);
+    if (isCard) openPaySheet(res.orderId, res.total, res.mpKey);
     else { closeSheet(); go('track', res.orderId); }
   } catch (e) { hidePay(); toast(e.message, 'err'); }
   finally { placing = false; }
@@ -410,7 +422,8 @@ function loadMP() {
 }
 function unmountBrick() { if (brick) { try { brick.unmount(); } catch {} brick = null; } }
 
-async function openPaySheet(orderId, amount) {
+// pk: Public Key con la que se carga la tarjeta cuando el servidor indica una distinta a la de la plataforma.
+async function openPaySheet(orderId, amount, pk) {
   openSheet(`
     <div class="sheet-h"><h2>Pagá con tarjeta</h2><button class="icon-btn" data-act="close" aria-label="Cerrar">✕</button></div>
     <div class="pay-sum"><span>Total a pagar</span><b>${money(amount)}</b></div>
@@ -421,7 +434,7 @@ async function openPaySheet(orderId, amount) {
     await loadMP();
     if (!$('#mp-brick')) return;
     $('#mp-brick').innerHTML = '';
-    const mp = new window.MercadoPago(MP_PUBLIC_KEY, { locale: 'es-AR' });
+    const mp = new window.MercadoPago(pk || MP_PUBLIC_KEY, { locale: 'es-AR' });
     brick = await mp.bricks().create('cardPayment', 'mp-brick', {
       initialization: { amount },
       customization: {
@@ -447,7 +460,7 @@ async function pay(orderId, form) {
   try {
     const r = await api.payOrder({ orderId, form });
     if (r.status === 'approved') {
-      showPay('¡Pago acreditado!', 'Tu pedido ya les llegó a los conductores', true);
+      showPay('¡Pago acreditado!', 'Tu pedido ya está en marcha', true);
       await new Promise(ok => setTimeout(ok, 1300));
       hidePay(); closeSheet(); go('track', orderId);
     } else if (r.status === 'in_process' || r.status === 'pending') {
@@ -488,9 +501,9 @@ const A = {
   'co-dec': t => { addItem(state.cart.bizId, t.dataset.id, -1); drawCo(); refreshCtls(); renderDock(); },
   cart: () => openCheckout(),
   tip: t => { state.tip = +t.dataset.v; drawCo(); },
-  method: t => { if (t.dataset.m === 'tarjeta' && !state.card) return; state.method = t.dataset.m; drawCo(); },
+  method: t => { if (t.dataset.m === 'tarjeta' && !cardOk()) return; state.method = t.dataset.m; drawCo(); },
   place: () => placeOrder(),
-  pay: t => { const o = state.orders[t.dataset.id]; if (o) openPaySheet(o.id, o.totals.total); },
+  pay: t => { const o = state.orders[t.dataset.id]; if (o) openPaySheet(o.id, o.totals.total, o.payment.pk); },
   track: t => { closeSheet(); go('track', t.dataset.id); },
   'pick-saved': t => { const a = state.saved[+t.dataset.i]; if (!a) return; $('#a-text').value = a.text; $('#a-ref').value = a.ref || ''; geo = a.lat ? { lat: a.lat, lon: a.lon } : null; $('#a-sug').innerHTML = ''; },
   sug: t => { const s = sugN[+t.dataset.i]; if (!s) return; $('#a-text').value = short(s.display_name); geo = { lat: +s.lat, lon: +s.lon }; $('#a-sug').innerHTML = ''; },
@@ -588,12 +601,21 @@ onAuthStateChanged(auth, async u => {
   if (u) {
     try { state.user = (await new Promise((ok, ko) => onValue(ref(db, `customers/${u.uid}`), s => ok(s.val()), ko, { onlyOnce: true }))) || null; } catch {}
     // La tarjeta aparece sola cuando el servidor tiene configurado Mercado Pago.
-    api.getConfig().then(c => { state.card = !!c.card; state.method = state.card ? 'tarjeta' : 'efectivo'; drawCo(); }).catch(() => {});
+    api.getConfig().then(c => { state.card = !!c.card; state.split = !!c.split; state.method = state.card ? 'tarjeta' : 'efectivo'; drawCo(); }).catch(() => {});
     unsubs.push(onValue(ref(db, `userOrders/${u.uid}`), s => Object.keys(s.val() || {}).forEach(watchOrder)));
     unsubs.push(onValue(ref(db, 'presence'), s => { state.presence = s.val() || {}; updateLive(); if (state.view === 'track') renderTrack(); }, () => {}));
   }
   state.ready = true; render();
 });
 setInterval(updateLive, 10000);
+// Si el local no confirma en 10 minutos, la app le pide al servidor que revise el pedido: él decide si lo cancela.
+const nudged = {};
+setInterval(() => {
+  for (const o of Object.values(state.orders)) {
+    if (!o || o.status !== 'nuevo' || o.kitchen !== 'pendiente') continue;
+    if (Date.now() - (o.t_nuevo || o.createdAt) < 10.2 * 60e3 || Date.now() - (nudged[o.id] || 0) < 60e3) continue;
+    nudged[o.id] = Date.now(); api.checkOrder({ orderId: o.id }).catch(() => {});
+  }
+}, 15000);
 render();
 if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
