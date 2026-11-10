@@ -2,7 +2,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInAnonymously, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { getDatabase, ref, onValue, set } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
-import { FIREBASE, API_URL, MP_PUBLIC_KEY } from './config.js';
+import { FIREBASE, API_URL, MP_PUBLIC_KEY, VAPID_KEY } from './config.js';
 
 const CURRENCY = '$';
 const DRIVER_TTL = 120000;
@@ -35,7 +35,26 @@ const call = name => async data => {
   if (!r.ok) throw new Error(j.error || 'Algo salió mal. Probá de nuevo.');
   return j.data;
 };
-const api = { getConfig: call('getConfig'), createOrder: call('createOrder'), payOrder: call('payOrder'), cancelOrder: call('cancelOrder'), checkOrder: call('checkOrder') };
+const api = { getConfig: call('getConfig'), createOrder: call('createOrder'), payOrder: call('payOrder'), cancelOrder: call('cancelOrder'), checkOrder: call('checkOrder'), savePushToken: call('savePushToken') };
+
+/* ─────────── avisos push ─────────── */
+// Con la app cerrada, los avisos llegan por Firebase Cloud Messaging. Queda apagado hasta cargar VAPID_KEY en config.js.
+// ask: pedir el permiso (solo después de un toque del usuario); sin ask, solo renueva el token si ya lo dio.
+let pushToken = null;
+async function enablePush(ask) {
+  try {
+    if (VAPID_KEY === 'COMPLETAR' || !('Notification' in window) || !('serviceWorker' in navigator)) return null;
+    if (Notification.permission === 'denied' || (Notification.permission !== 'granted' && !ask)) return null;
+    if (Notification.permission !== 'granted' && await Notification.requestPermission() !== 'granted') return null;
+    const { getMessaging, getToken, isSupported } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js');
+    if (!(await isSupported())) return null;
+    const reg = await Promise.race([navigator.serviceWorker.ready, new Promise((_, ko) => setTimeout(() => ko(new Error('sin service worker')), 8000))]);
+    const token = await getToken(getMessaging(fb), { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+    if (!token) return null;
+    await api.savePushToken({ token }); pushToken = token;
+    return token;
+  } catch (e) { console.warn('Avisos push no disponibles:', e && e.message); return null; }
+}
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -403,6 +422,7 @@ async function placeOrder() {
     });
     state.cart = { bizId: null, items: {} }; state.notes = '';
     watchOrder(res.orderId);
+    enablePush(true);   // para avisarle cómo va su pedido aunque cierre la app
     hidePay();
     if (isCard) openPaySheet(res.orderId, res.total, res.mpKey);
     else { closeSheet(); go('track', res.orderId); }
@@ -602,6 +622,7 @@ onAuthStateChanged(auth, async u => {
     try { state.user = (await new Promise((ok, ko) => onValue(ref(db, `customers/${u.uid}`), s => ok(s.val()), ko, { onlyOnce: true }))) || null; } catch {}
     // La tarjeta aparece sola cuando el servidor tiene configurado Mercado Pago.
     api.getConfig().then(c => { state.card = !!c.card; state.split = !!c.split; state.method = state.card ? 'tarjeta' : 'efectivo'; drawCo(); }).catch(() => {});
+    enablePush(false);
     unsubs.push(onValue(ref(db, `userOrders/${u.uid}`), s => Object.keys(s.val() || {}).forEach(watchOrder)));
     unsubs.push(onValue(ref(db, 'presence'), s => { state.presence = s.val() || {}; updateLive(); if (state.view === 'track') renderTrack(); }, () => {}));
   }

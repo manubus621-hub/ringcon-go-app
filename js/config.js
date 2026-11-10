@@ -15,3 +15,7 @@ export const API_URL = '';
 
 // Mercado Pago → Tus integraciones → Credenciales → Public Key (empieza con APP_USR- o TEST-).
 export const MP_PUBLIC_KEY = 'APP_USR-bf311144-d518-472b-b4f4-9542b16b9392';
+
+// Avisos push: Firebase Console → Configuración del proyecto → Cloud Messaging → Certificados push web → Generar par de claves.
+// Pegá acá la clave (empieza con B). Mientras diga COMPLETAR, los avisos push quedan apagados.
+export const VAPID_KEY = 'COMPLETAR';

@@ -10,13 +10,15 @@
      MP_CLIENT_ID              (opcional) ID de la aplicación de Mercado Pago: activa el cobro dividido por local
      MP_CLIENT_SECRET          (opcional) Clave secreta de esa aplicación
      MP_SPLIT_PUBLIC_KEY       (opcional) "vendedor" si el formulario de tarjeta tiene que usar la Public Key del local
-     PUBLIC_URL                https://ringcon-go.vercel.app (para el webhook y la vuelta de Mercado Pago) */
+     PUBLIC_URL                https://ringcon-go.vercel.app (para el webhook y la vuelta de Mercado Pago)
+     OPS_URL                   (opcional) dominio de la app de conductores y del panel del local, para los avisos push */
 'use strict';
 
 const crypto = require('crypto');
 const { initializeApp, cert, getApps } = require('firebase-admin/app');
 const { getDatabase, ServerValue } = require('firebase-admin/database');
 const { getAuth } = require('firebase-admin/auth');
+const { getMessaging } = require('firebase-admin/messaging');
 
 // Se inicializa en la primera llamada: si falta la clave, la API responde un error claro en vez de caerse.
 let db;
@@ -31,6 +33,7 @@ function init() {
 
 const PUBLIC_URL = (process.env.PUBLIC_URL || 'https://ringcon-go.vercel.app').replace(/\/+$/, '');
 const WEBHOOK_URL = `${PUBLIC_URL}/api/mp-webhook`;
+const OPS_URL = (process.env.OPS_URL || 'https://ringcon-go-conductores.vercel.app').replace(/\/+$/, '');
 const DRIVER_EMAIL_DOMAIN = 'conductores.ringcongo.app';
 const TIPS = [0, 1000, 2000, 3000];
 const SERVICE_RATE = 0.15;
@@ -150,6 +153,56 @@ const REJECT = {
   cc_rejected_max_attempts: 'Llegaste al límite de intentos. Probá con otra tarjeta.'
 };
 
+/* ─────────── avisos push (Firebase Cloud Messaging) ─────────── */
+// Cada dispositivo guarda su token al activar los avisos (pushTokens/, que ningún navegador puede leer).
+// Un conductor lo guarda al ponerse en línea y lo borra al salir: así solo se avisa a quien está trabajando.
+const money = n => '$' + String(Math.round(Number(n || 0))).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+const tokenKey = t => crypto.createHash('sha256').update(t).digest('hex').slice(0, 32);
+const staffOf = async bizId => Object.keys((await db.ref(`bizStaff/${bizId}`).get()).val() || {});
+const driversOf = async townId => Object.entries((await db.ref('drivers').get()).val() || {}).filter(([, d]) => d.status === 'aprobado' && d.townId === townId).map(([uid]) => uid);
+
+// Nunca frena un pedido: si un aviso falla, queda en el registro y nada más.
+async function push(uids, { title, body, link, tag }) {
+  try {
+    const targets = [];
+    for (const uid of new Set(uids.filter(Boolean)))
+      for (const [k, v] of Object.entries((await db.ref(`pushTokens/${uid}`).get()).val() || {})) if (v && v.token) targets.push({ path: `pushTokens/${uid}/${k}`, token: v.token });
+    if (!targets.length) return;
+    const res = await getMessaging().sendEachForMulticast({
+      tokens: targets.map(t => t.token),
+      data: { title: String(title), body: String(body || ''), link: String(link), tag: String(tag) },
+      webpush: { headers: { Urgency: 'high', TTL: '900' } }
+    });
+    // Tokens que ya no existen (app desinstalada o permiso quitado).
+    const dead = {};
+    res.responses.forEach((r, i) => { if (!r.success && /registration-token-not-registered|invalid-registration-token/.test((r.error && r.error.code) || '')) dead[targets[i].path] = null; });
+    if (Object.keys(dead).length) await db.ref().update(dead);
+  } catch (e) { console.error('push', e); }
+}
+
+// A quién se le avisa según lo que acaba de pasar con el pedido.
+async function notify(o, ev) {
+  const tag = `pedido-${o.id}`, n = '#' + String(o.id).slice(-5).toUpperCase();
+  const customer = (title, body) => push([o.customerUid], { title, body, link: `${PUBLIC_URL}/`, tag });
+  const drivers = async () => push(await driversOf(o.townId), { title: 'Nuevo pedido disponible', body: `${o.business.name} · ganás ${money(o.driverPay)}`, link: `${OPS_URL}/`, tag });
+  const who = o.driver ? o.driver.name.split(' ')[0] : 'Tu conductor';
+  switch (ev) {
+    case 'visible': return o.kitchen === 'pendiente'
+      ? push(await staffOf(o.business.id), { title: `Pedido nuevo ${n}`, body: 'Abrí el panel para aceptarlo.', link: `${OPS_URL}/local.html`, tag })
+      : drivers();
+    case 'aceptado': await customer('El local aceptó tu pedido', `${o.business.name} ya lo está preparando.`); return drivers();
+    case 'rechazado': return customer('El local no pudo tomar tu pedido', o.cancelNote || 'Podés pedir en otro local.');
+    case 'sin_respuesta': return customer('Cancelamos tu pedido', 'El local no confirmó a tiempo.');
+    case 'listo': return o.driver ? push([o.driver.uid], { title: 'Pedido listo para retirar', body: `${o.business.name} ${n}`, link: `${OPS_URL}/`, tag }) : null;
+    case 'conductor': return customer(`${who} va por tu pedido`, 'Podés seguirlo en la app.');
+    case 'recogido': return customer('Tu pedido va en camino', `${who} ya lo retiró.`);
+    case 'entregado': return customer('¡Entregado! Buen provecho', 'Gracias por pedir con Ringcon Go.');
+    case 'liberado': return drivers();
+    case 'cancelado': return customer('Cancelamos tu pedido', 'Escribinos si necesitás ayuda.');
+    default: return null;
+  }
+}
+
 /* ─────────── tablero público para conductores y panel del local ─────────── */
 // Lo que ve el local de un pedido suyo: sin teléfono ni dirección del cliente.
 const bizView = o => ({
@@ -181,7 +234,7 @@ async function syncOpen(id) {
 // Aplica el estado real de un pago de Mercado Pago a su pedido (lo usan payOrder y el webhook).
 async function applyPayment(orderId, p) {
   if (!/^[\w-]{1,40}$/.test(orderId) || String(p.external_reference) !== orderId) return;
-  let refundNeeded = false;
+  let refundNeeded = false, paid = false;
   const sel = await sellerOf((await db.ref(`orders/${orderId}`).get()).val());
   const res = await db.ref(`orders/${orderId}`).transaction(o => {
     if (!o) return o;
@@ -190,12 +243,14 @@ async function applyPayment(orderId, p) {
     if (sel && p.collector_id != null && String(p.collector_id) !== sel.userId) { o.payment.flag = 'cobrador_distinto'; return o; }
     const now = Date.now();
     o.payment = { ...o.payment, mpId: String(p.id), status: p.status, detail: p.status_detail || '', updatedAt: now };
-    if (p.status === 'approved' && o.status === 'pago_pendiente') { o.status = 'nuevo'; o.t_nuevo = now; o.updatedAt = now; }
+    paid = p.status === 'approved' && o.status === 'pago_pendiente';
+    if (paid) { o.status = 'nuevo'; o.t_nuevo = now; o.updatedAt = now; }
     refundNeeded = p.status === 'approved' && o.status === 'cancelado';
     return o;
   });
   if (refundNeeded && res.committed) await refund(res.snapshot.val());
   await syncOpen(orderId);
+  if (paid && res.committed) await notify(res.snapshot.val(), 'visible');
 }
 
 // En un pago dividido lo pide el local (su token) y Mercado Pago descuenta de cada cuenta su parte.
@@ -283,6 +338,7 @@ async function expireKitchen(id) {
   if (!res.committed || !o || o.kitchen !== 'sin_respuesta') return false;
   if (o.payment.method === 'tarjeta' && o.payment.status === 'approved') await refund(o);
   await syncOpen(id);
+  await notify(o, 'sin_respuesta');
   return true;
 }
 
@@ -361,6 +417,7 @@ H.createOrder = async ({ uid, data: d }) => {
   };
   await db.ref().update({ [`orders/${id}`]: order, [`userOrders/${uid}/${id}`]: true });
   await syncOpen(id);
+  if (status === 'nuevo') await notify(order, 'visible');
   return { orderId: id, status, total: totals.total, ...(payment.pk ? { mpKey: payment.pk } : {}) };
 };
 
@@ -425,6 +482,24 @@ H.cancelOrder = async ({ uid, data }) => {
   if (o.driver) await db.ref(`driverActive/${o.driver.uid}`).remove();
   if (o.payment.method === 'tarjeta' && o.payment.status === 'approved') await refund(o);
   await syncOpen(id);
+  if (admin && o.customerUid !== uid) await notify(o, 'cancelado');
+  return { ok: true };
+};
+
+// Avisos push de este dispositivo. Se guardan como mucho 5 por usuario.
+H.savePushToken = async ({ uid, data }) => {
+  await rateLimit(`${uid}/push`, 30, 3600e3);
+  const token = str(data.token, 500);
+  if (token.length < 20) fail('invalid-argument', 'Token inválido.');
+  const ref = db.ref(`pushTokens/${uid}`);
+  await ref.child(tokenKey(token)).set({ token, at: Date.now() });
+  const all = Object.entries((await ref.get()).val() || {}).sort((a, b) => b[1].at - a[1].at);
+  if (all.length > 5) await ref.update(Object.fromEntries(all.slice(5).map(([k]) => [k, null])));
+  return { ok: true };
+};
+H.removePushToken = async ({ uid, data }) => {
+  const token = str(data.token, 500);
+  if (token) await db.ref(`pushTokens/${uid}/${tokenKey(token)}`).remove();
   return { ok: true };
 };
 
@@ -458,6 +533,7 @@ H.bizAdvance = async ({ uid, data }) => {
   if (!res.committed || !o || o.kitchen !== to) fail('failed-precondition', 'El pedido cambió. Actualizá la pantalla.');
   if (to === 'rechazado' && o.payment.method === 'tarjeta' && o.payment.status === 'approved') await refund(o);
   await syncOpen(id);
+  await notify(o, to);
   return { kitchen: to };
 };
 
@@ -653,6 +729,7 @@ H.driverAccept = async ({ uid, data }) => {
     fail('failed-precondition', 'Otro conductor tomó este pedido.');
   }
   await syncOpen(id);
+  await notify(res.snapshot.val(), 'conductor');
   return { ok: true };
 };
 
@@ -684,6 +761,7 @@ H.driverAdvance = async ({ uid, data }) => {
     });
   }
   await syncOpen(id);
+  await notify(o, to);
   return { status: to };
 };
 
@@ -698,6 +776,7 @@ H.driverRelease = async ({ uid, data }) => {
   if (!res.committed) fail('failed-precondition', 'Ya no podés liberar este pedido.');
   await db.ref(`driverActive/${uid}`).remove();
   await syncOpen(id);
+  await notify(res.snapshot.val(), 'liberado');
   return { ok: true };
 };
 

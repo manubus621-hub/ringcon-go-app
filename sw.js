@@ -9,3 +9,24 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || u.origin !== location.origin) return;
   e.respondWith(fetch(e.request).then(r => { const c = r.clone(); caches.open(CACHE).then(k => k.put(e.request, c)); return r; }).catch(() => caches.match(e.request)));
 });
+
+// Avisos push (Firebase Cloud Messaging): muestra el aviso y, al tocarlo, abre o enfoca la app.
+self.addEventListener('push', e => {
+  let p = {}; try { p = e.data ? e.data.json() : {}; } catch {}
+  const d = { ...(p.notification || {}), ...(p.data || {}) };
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+    if (cs.some(c => c.focused)) return;   // con la app abierta y a la vista, alcanza con el aviso en pantalla
+    return self.registration.showNotification(d.title || 'Ringcon Go', {
+      body: d.body || '', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png',
+      tag: d.tag || 'ringcon-go', renotify: true, vibrate: [200, 100, 200], data: { link: d.link || './' }
+    });
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const link = new URL((e.notification.data && e.notification.data.link) || './', self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+    const open = cs.find(c => c.url.split(/[?#]/)[0] === link.split(/[?#]/)[0]);
+    return open ? open.focus() : self.clients.openWindow(link);
+  }));
+});
